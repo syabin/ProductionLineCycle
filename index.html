@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>生产线产能节拍甘特图系统</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0d1117; --bg2: #161b22; --bg3: #21262d; --bgH: #30363d;
+  --blue: #58a6ff; --green: #3fb950; --yellow: #d29922; --red: #f85149; --purple: #a371f7;
+  --txt: #e6edf3; --txt2: #8b949e; --txtM: #6e7681;
+  --bd: #30363d; --bdL: #21262d; --sh: rgba(0,0,0,0.3);
+}
+[data-theme="light"] {
+  --bg: #fff; --bg2: #f6f8fa; --bg3: #eaeef2; --bgH: #dde3ea;
+  --blue: #0969da; --green: #1a7f37; --yellow: #9a6700; --red: #cf222e; --purple: #8250df;
+  --txt: #1f2328; --txt2: #656d76; --txtM: #8b949e;
+  --bd: #d0d7de; --bdL: #eaeef2; --sh: rgba(0,0,0,0.08);
+}
+body { font-family: 'Segoe UI', 'PingFang SC', sans-serif; background: var(--bg); color: var(--txt); height: 100vh; overflow: hidden; }
+#app { display: flex; flex-direction: column; height: 100vh; }
+.login-wrap { height: 100vh; display: flex; align-items: center; justify-content: center; }
+.login-box { background: var(--bg2); border: 1px solid var(--bd); border-radius: 12px; padding: 32px; width: 340px; }
+.login-title { text-align: center; font-size: 20px; font-weight: 700; color: var(--blue); margin-bottom: 24px; }
+.login-field { margin-bottom: 16px; }
+.login-label { display: block; font-size: 12px; color: var(--txt2); margin-bottom: 6px; }
+.login-input { width: 100%; padding: 10px 12px; background: var(--bg3); border: 1px solid var(--bd); border-radius: 6px; color: var(--txt); font-size: 14px; }
+.login-input:focus { outline: none; border-color: var(--blue); }
+.login-btn { width: 100%; padding: 10px; background: var(--blue); color: #fff; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+.login-btn:hover { filter: brightness(1.1); }
+.login-error { color: var(--red); font-size: 12px; margin-top: 10px; text-align: center; }
+.login-footer { text-align: center; margin-top: 16px; }
+.login-link { color: var(--blue); text-decoration: none; font-size: 12px; }
+.hdr { background: var(--bg2); border-bottom: 1px solid var(--bd); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
+.hdr-title { font-size: 16px; font-weight: 600; color: var(--blue); }
+.hdr-user { font-size: 12px; color: var(--txt2); margin-right: 10px; }
+.thm { padding: 6px 12px; border: 1px solid var(--bd); border-radius: 6px; background: var(--bg3); color: var(--txt); font-size: 12px; cursor: pointer; }
+.btn { padding: 6px 12px; border: 1px solid var(--bd); border-radius: 6px; background: var(--bg3); color: var(--txt); font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.btn:hover { background: var(--bgH); border-color: var(--blue); }
+.btn-p { background: var(--blue); color: #fff; border-color: var(--blue); }
+.btn-p:hover { filter: brightness(1.1); }
+.btn-r { color: var(--red); }
+.btn-r:hover { border-color: var(--red); background: rgba(248,81,73,.1); }
+.btn-sm { padding: 4px 8px; font-size: 11px; }
+.icon-btn { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border: none; background: transparent; color: var(--txt2); cursor: pointer; border-radius: 4px; font-size: 11px; }
+.icon-btn:hover { background: var(--bg3); color: var(--txt); }
+.icon-btn.r:hover { color: var(--red); background: rgba(248,81,73,.1); }
+.icon-btn-xs { padding: 2px 4px; background: transparent; border: none; cursor: pointer; font-size: 12px; border-radius: 3px; }
+.icon-btn-xs:hover { background: var(--bg3); }
+.main { display: grid; grid-template-rows: 1fr auto; grid-template-columns: 280px 1fr 320px; flex: 1; overflow: hidden; }
+.panel { background: var(--bg2); overflow-y: auto; }
+.panel:not(.cv) { padding: 14px; }
+.panel-t { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--txt2); margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--bd); }
+.lib { border-right: 1px solid var(--bd); }
+.sts { border-left: 1px solid var(--bd); }
+.collapsible { cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+.collapse-btn { font-size: 10px; opacity: 0.7; }
+.si { margin-bottom: 8px; }
+.sh { display: flex; align-items: center; padding: 8px 10px; background: var(--bg3); border-radius: 6px; cursor: pointer; }
+.sh:hover { background: var(--bgH); }
+.sh.xp { border-radius: 6px 6px 0 0; }
+.si-ic { margin-right: 8px; font-size: 14px; }
+.si-nm { flex: 1; font-size: 13px; font-weight: 500; }
+.si-ct { font-size: 10px; color: var(--txtM); background: var(--bg2); padding: 2px 7px; border-radius: 10px; margin-right: 6px; }
+.sms { background: var(--bg); border: 1px solid var(--bd); border-top: none; border-radius: 0 0 6px 6px; }
+.mi { padding: 6px 8px; background: var(--bg3); border-radius: 4px; cursor: grab; margin-bottom: 4px; display: flex; align-items: center; }
+.mi:hover .mi-actions { opacity: 1; }
+.mif { flex: 1; }
+.min { font-size: 12px; margin-bottom: 1px; display: flex; align-items: center; gap: 4px; }
+.mim { font-size: 10px; color: var(--txtM); }
+.mi-actions { display: flex; gap: 2px; opacity: 0; transition: opacity .15s; }
+.addbtn { width: 100%; padding: 8px; background: transparent; border: 2px dashed var(--bd); border-radius: 6px; color: var(--txt2); font-size: 12px; cursor: pointer; margin-top: 8px; }
+.addbtn:hover { border-color: var(--blue); color: var(--blue); }
+.lib-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: var(--bg3); border-radius: 6px; margin-bottom: 8px; }
+.lib-toolbar-l { display: flex; align-items: center; gap: 6px; position: relative; }
+.btn-xs { padding: 4px 8px; font-size: 11px; background: var(--bg2); border: 1px solid var(--bd); border-radius: 4px; color: var(--txt); cursor: pointer; }
+.btn-xs:hover { border-color: var(--blue); color: var(--blue); }
+.dropdown-menu { position: absolute; top: 100%; left: 0; margin-top: 4px; background: var(--bg2); border: 1px solid var(--bd); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.3); z-index: 100; min-width: 120px; }
+.dropdown-item { padding: 8px 12px; font-size: 12px; cursor: pointer; }
+.dropdown-item:hover { background: var(--bg3); }
+.si-actions { display: flex; gap: 2px; margin-left: auto; opacity: 0; }
+.si:hover .si-actions { opacity: 1; }
+.si-expand { cursor: pointer; margin-right: 4px; font-size: 10px; color: var(--txtM); }
+.unit-tag { display: inline-flex; align-items: center; padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: 600; }
+.unit-L { background: #1565c0; color: #fff; }
+.unit-KG { background: #6d4c41; color: #fff; }
+.concurrent-tag { display: inline-flex; padding: 1px 4px; border-radius: 3px; font-size: 8px; font-weight: 600; margin-left: 4px; }
+.concurrent-yes { background: #2e7d32; color: #fff; }
+.concurrent-no { background: #c62828; color: #fff; }
+.cv { background: var(--bg2); overflow: auto; display: flex; flex-direction: column; }
+.cv-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--txt2); }
+.cv-icon { font-size: 48px; opacity: .3; margin-bottom: 10px; }
+.cv-t { font-size: 14px; margin-bottom: 6px; }
+.cv-h { font-size: 12px; opacity: .7; }
+.shdr { background: var(--bg2); border-bottom: 1px solid var(--bd); padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; }
+.shdr-l { display: flex; align-items: center; gap: 12px; }
+.shdr-t { font-size: 13px; font-weight: 600; color: var(--txt2); }
+.tgl { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.tgl-l { font-size: 12px; color: var(--txt2); }
+.tgl-t { width: 36px; height: 20px; background: var(--bg3); border-radius: 10px; position: relative; transition: background .2s; border: 1px solid var(--bd); }
+.tgl-t.on { background: var(--blue); border-color: var(--blue); }
+.tgl-t.on .tgl-h { transform: translateX(16px); }
+.tgl-h { width: 16px; height: 16px; background: #fff; border-radius: 50%; position: absolute; top: 1px; left: 1px; transition: transform .2s; }
+.gw { flex: 1; overflow: auto; position: relative; }
+.gc { display: grid; grid-template-columns: 180px 1fr; min-width: 100%; position: relative; }
+.ghdr-lbl { position: sticky; left: 0; top: 0; z-index: 20; background: var(--bg2); padding: 10px 14px; font-size: 11px; font-weight: 600; color: var(--txt2); border-right: 1px solid var(--bd); border-bottom: 2px solid var(--bd); }
+.ghdr-tl { position: sticky; left: 180px; height: 36px; min-width: 600px; z-index: 15; background: var(--bg2); border-bottom: 2px solid var(--bd); overflow: visible; }
+.gt { position: absolute; top: 0; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-family: Consolas, monospace; color: var(--txtM); border-left: 1px solid var(--bdL); }
+.gt.mj { border-left-color: var(--bd); }
+.gt-l { padding: 0 3px; background: var(--bg2); }
+.gr-row { display: grid; grid-template-columns: 180px 1fr; border-bottom: 1px solid var(--bdL); min-height: 72px; transition: background .1s; }
+.gr-row:hover { background: rgba(88,166,255,.05); }
+.gr-row.drag-over { background: rgba(88,166,255,.12); outline: 2px dashed var(--blue); outline-offset: -2px; }
+.gr-row.row-dragging { opacity: 0.5; }
+.gl-lbl { position: sticky; left: 0; background: inherit; z-index: 20; padding: 8px 14px; border-right: 1px solid var(--bd); display: flex; flex-direction: column; justify-content: center; }
+.gl-lbl-top { display: flex; align-items: center; gap: 4px; margin-bottom: 2px; }
+.gd-nm { font-size: 12px; font-weight: 500; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gd-note { font-size: 10px; color: var(--txtM); cursor: text; }
+.row-drag-handle { cursor: grab; color: var(--txtM); font-size: 12px; flex-shrink: 0; padding: 2px; border-radius: 3px; }
+.gr-c { position: relative; min-width: 600px; padding: 3px 0 4px 0; border-left: 2px solid var(--bd); overflow: hidden; }
+.gg { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; }
+.gg-l { position: absolute; height: 100%; width: 1px; border-left: 1px solid var(--bdL); }
+.gg-l.mj { border-left-color: var(--bd); }
+.gp { position: absolute; top: 3px; border-radius: 6px; cursor: grab; z-index: 2; box-shadow: 0 1px 4px var(--sh); display: flex; flex-direction: column; overflow: visible; transition: box-shadow .15s; height: 28px; min-height: 28px; }
+.gp:hover, .gp.drg { box-shadow: 0 4px 12px var(--sh); z-index: 10; }
+.gp.drg { cursor: grabbing; opacity: .9; }
+.gp.p1 { background: linear-gradient(135deg, #42a5f5, #64b5f6); }
+.gp.p2 { background: linear-gradient(135deg, #66bb6a, #81c784); }
+.gp.p3 { background: linear-gradient(135deg, #ffa726, #ffb74d); }
+.gp.p4 { background: linear-gradient(135deg, #ab47bc, #ce93d8); }
+.gp.p5 { background: linear-gradient(135deg, #ef5350, #e57373); }
+.gp.p6 { background: linear-gradient(135deg, #26c6da, #4dd0e1); }
+.gp.p7 { background: linear-gradient(135deg, #ec407a, #f48fb1); }
+.gp.p8 { background: linear-gradient(135deg, #7e57c2, #9575cd); }
+.gp-tp { flex: 1; display: flex; align-items: center; padding: 2px 8px; min-height: 20px; }
+.gp-seq { font-size: 9px; font-weight: 700; color: rgba(255,255,255,.8); margin-right: 4px; }
+.gp-nm { font-size: 10px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gp-tm { font-size: 8px; color: rgba(255,255,255,.85); margin-left: 6px; white-space: nowrap; }
+.gp-inf { position: absolute; top: 31px; left: 0; padding: 3px 6px; font-size: 9px; color: rgba(255,255,255,.95); display: flex; gap: 4px; flex-wrap: wrap; z-index: 5; border-radius: 0 0 4px 4px; max-width: 100%; word-break: break-all; box-sizing: border-box; }
+.gp-inf-row { display: flex; align-items: center; gap: 2px; white-space: nowrap; flex-shrink: 0; }
+.gp-inf-row-wrap { flex-basis: 100%; white-space: normal; }
+.gp-inf-label { font-size: 8px; opacity: 0.8; }
+.gp-inf-value { font-weight: 600; }
+.rz { position: absolute; top: 0; width: 8px; height: 100%; cursor: ew-resize; z-index: 3; }
+.rz.l { left: 0; }
+.rz.r { right: 0; }
+.rz:hover { background: rgba(255,255,255,.3); }
+.gp-ac { position: absolute; right: 4px; top: 4px; display: flex; gap: 2px; opacity: 0; transition: opacity .15s; z-index: 6; }
+.gp:hover .gp-ac { opacity: 1; }
+.gp-ac .icon-btn { width: 20px; height: 20px; font-size: 10px; background: rgba(0,0,0,.4); color: rgba(255,255,255,.9); }
+.gp.bottleneck { box-shadow: 0 0 0 3px var(--red), 0 4px 12px rgba(248,81,73,.4); }
+.sc { background: var(--bg3); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+.sl { font-size: 10px; color: var(--txt2); margin-bottom: 3px; }
+.sv { font-size: 20px; font-weight: 700; display: flex; align-items: baseline; gap: 4px; }
+.su { font-size: 11px; font-weight: 400; color: var(--txt2); }
+.sv.bl { color: var(--blue); } .sv.gr { color: var(--green); } .sv.ye { color: var(--yellow); } .sv.rd { color: var(--red); }
+.sr { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+.cap-item { background: var(--bg3); border-radius: 6px; padding: 8px 10px; }
+.cap-item-l { font-size: 10px; color: var(--txtM); margin-bottom: 3px; display: flex; align-items: center; gap: 4px; }
+.cap-item-d { width: 6px; height: 6px; border-radius: 50%; }
+.cap-item-v { font-size: 16px; font-weight: 700; }
+.cap-item-u { font-size: 10px; color: var(--txt2); margin-left: 2px; }
+.balance-section { margin-top: 12px; }
+.balance-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--bd); }
+.balance-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--txt2); }
+.balance-rate { display: flex; align-items: center; gap: 8px; }
+.balance-bar { flex: 1; height: 8px; background: var(--bgH); border-radius: 4px; overflow: hidden; }
+.balance-fill { height: 100%; border-radius: 4px; transition: width .3s; }
+.balance-val { font-size: 14px; font-weight: 700; min-width: 50px; text-align: right; }
+.station-list { margin-top: 8px; }
+.station-item { display: flex; align-items: center; padding: 6px 8px; background: var(--bg3); border-radius: 4px; margin-bottom: 4px; }
+.station-item.bottleneck { border: 1px solid var(--red); }
+.station-nm { flex: 1; font-size: 11px; }
+.station-ct { font-size: 11px; font-weight: 600; color: var(--txt2); font-family: Consolas, monospace; }
+.station-badge { font-size: 8px; padding: 2px 5px; border-radius: 3px; font-weight: 600; }
+.station-badge.bottleneck { background: var(--red); color: #fff; }
+.station-badge.ok { background: var(--green); color: #fff; }
+.flow-arrow { position: absolute; pointer-events: none; z-index: 5; }
+.flow-arrow svg { overflow: visible; }
+.flow-warning { animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+.bottleneck-alert { background: linear-gradient(135deg, rgba(248,81,73,.15), rgba(248,81,73,.05)); border: 1px solid var(--red); border-radius: 8px; padding: 12px; margin-top: 12px; }
+.alert-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.alert-icon { font-size: 18px; animation: pulse 1.5s infinite; }
+.alert-title { font-size: 12px; font-weight: 600; color: var(--red); }
+.alert-detail { font-size: 11px; color: var(--txt2); }
+.flow-info { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--bg3); border-radius: 6px; margin-top: 8px; }
+.flow-badge { font-size: 10px; padding: 2px 6px; border-radius: 3px; font-weight: 600; }
+.flow-badge.active { background: var(--green); color: #fff; }
+.flow-badge.inactive { background: var(--txtM); color: #fff; }
+.linked-indicator { font-size: 9px; padding: 1px 4px; border-radius: 3px; margin-left: 4px; }
+.linked-indicator.linked { background: var(--blue); color: #fff; }
+.linked-indicator.auto { background: var(--purple); color: #fff; }
+.chart-section { background: var(--bg2); border-top: 1px solid var(--bd); flex-shrink: 0; }
+.chart-section.zoomed { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 500; overflow: auto; }
+.chart-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--bd); gap: 10px; }
+.chart-scroll-container { overflow-x: auto; overflow-y: hidden; }
+.chart-inner { display: flex; flex-direction: column; min-width: 100%; }
+.chart-timeline { display: flex; height: 28px; border-bottom: 1px solid var(--bd); }
+.chart-tl-label { width: 180px; flex-shrink: 0; }
+.chart-tl { flex: 1; position: relative; overflow: hidden; }
+.ctt { position: absolute; top: 0; height: 100%; display: flex; align-items: center; font-size: 10px; color: var(--txt2); }
+.ctt.mj { color: var(--txt); font-weight: 500; }
+.chart-canvas { width: 100%; height: 120px; position: relative; background: var(--bg3); border-radius: 6px; overflow: hidden; }
+.tooltip { position: fixed; background: var(--bg2); color: var(--txt); border: 1px solid var(--bd); border-radius: 4px; padding: 6px 8px; font-size: 12px; z-index: 1001; box-shadow: 0 2px 8px rgba(0,0,0,0.3); pointer-events: none; white-space: nowrap; }
+.mo { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.ico-opt { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; font-size: 16px; border-radius: 6px; cursor: pointer; background: var(--bg2); border: 1px solid var(--bd); }
+.ico-opt:hover { background: var(--bg3); transform: scale(1.1); }
+.ico-opt.active { background: var(--bg3); border-color: var(--blue); box-shadow: 0 0 0 2px rgba(33,150,243,.3); }
+.md { background: var(--bg2); border: 1px solid var(--bd); border-radius: 12px; width: 90%; max-width: 620px; max-height: 88vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+.mh { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--bd); }
+.mt { font-size: 15px; font-weight: 600; }
+.mb { padding: 12px 18px; }
+.mf { padding: 16px; border-top: 1px solid var(--bd); display: flex; justify-content: flex-end; gap: 8px; }
+.fg { margin-bottom: 14px; }
+.fl { display: block; font-size: 11px; color: var(--txt2); margin-bottom: 5px; }
+.fi { width: 100%; padding: 9px 12px; background: var(--bg3); border: 1px solid var(--bd); border-radius: 6px; color: var(--txt); font-size: 13px; }
+.fi:focus { outline: none; border-color: var(--blue); }
+.fr { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.fc { display: flex; flex-direction: column; }
+.fc .fl { font-size: 9px; text-align: center; }
+.fc .fi { padding: 7px 4px; font-size: 11px; text-align: center; }
+.pb { font-size: 9px; padding: 2px 6px; border-radius: 10px; font-weight: 600; color: #fff; }
+.pb1 { background: #42a5f5; } .pb2 { background: #66bb6a; } .pb3 { background: #ffa726; } .pb4 { background: #ab47bc; }
+.pb5 { background: #ef5350; } .pb6 { background: #26c6da; } .pb7 { background: #ec407a; } .pb8 { background: #7e57c2; }
+.unit-toggle { display: inline-flex; border-radius: 4px; overflow: hidden; border: 1px solid var(--bd); }
+.unit-toggle button { padding: 4px 10px; font-size: 11px; background: var(--bg3); border: none; color: var(--txt2); cursor: pointer; }
+.unit-toggle button:first-child { border-right: 1px solid var(--bd); }
+.unit-toggle button:last-child { border-left: 1px solid var(--bd); }
+.unit-toggle button.active { background: var(--blue); color: #fff; }
+.io-switch { width: 32px; height: 16px; background: var(--bgH); border-radius: 8px; position: relative; cursor: pointer; transition: background .2s; border: 1px solid var(--bd); }
+.io-switch.on { background: var(--green); border-color: var(--green); }
+.io-switch .handle { width: 12px; height: 12px; background: #fff; border-radius: 50%; position: absolute; top: 1px; left: 1px; transition: transform .2s; }
+.io-switch.on .handle { transform: translateX(16px); }
+.stat-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+.stat-badge.concurrent { background: #2e7d32; color: #fff; }
+.stat-badge.sequential { background: #c62828; color: #fff; }
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--bgH); border-radius: 4px; }
+.loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 2000; }
+.loading-spinner { width: 40px; height: 40px; border: 3px solid var(--bd); border-top-color: var(--blue); border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.error { color: var(--red); font-size: 12px; margin-top: 8px; }
+.success { color: var(--green); font-size: 12px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div id="app">
+<div v-if="false" class="login-wrap">
+  <div v-if="!showRegister" class="login-box">
+    <div class="login-title">生产线产能节拍系统</div>
+    <div class="login-field">
+      <label class="login-label">用户名</label>
+      <input class="login-input" v-model="loginForm.username" @keyup.enter="doLogin" placeholder="请输入用户名">
+    </div>
+    <div class="login-field">
+      <label class="login-label">密码</label>
+      <input class="login-input" type="password" v-model="loginForm.password" @keyup.enter="doLogin" placeholder="请输入密码">
+    </div>
+    <button class="login-btn" @click="doLogin" :disabled="loginLoading">{{ loginLoading ? '登录中...' : '登录' }}</button>
+    <div v-if="loginError" class="login-error">{{ loginError }}</div>
+    <div class="login-footer">
+      <a href="#" @click.prevent="showRegister = true" class="login-link">没有账号？立即注册</a>
+    </div>
+  </div>
+  <div v-else class="login-box">
+    <div class="login-title">用户注册</div>
+    <div class="login-field">
+      <label class="login-label">用户名</label>
+      <input class="login-input" v-model="registerForm.username" placeholder="请输入用户名">
+    </div>
+    <div class="login-field">
+      <label class="login-label">密码</label>
+      <input class="login-input" type="password" v-model="registerForm.password" placeholder="请输入密码">
+    </div>
+    <div class="login-field">
+      <label class="login-label">确认密码</label>
+      <input class="login-input" type="password" v-model="registerForm.confirmPassword" placeholder="请再次输入密码">
+    </div>
+    <div class="login-field">
+      <label class="login-label">邀请码</label>
+      <input class="login-input" v-model="registerForm.inviteCode" placeholder="请输入邀请码">
+    </div>
+    <button class="login-btn" @click="doRegister" :disabled="loginLoading">{{ loginLoading ? '注册中...' : '注册' }}</button>
+    <div v-if="loginError" class="login-error">{{ loginError }}</div>
+    <div class="login-footer">
+      <a href="#" @click.prevent="showRegister = false" class="login-link">已有账号？立即登录</a>
+    </div>
+  </div>
+</div>
+
+<div v-else>
+<header class="hdr">
+  <div class="hdr-title">生产线产能节拍甘特图系统</div>
+  <div style="display:flex;gap:6px;align-items:center">
+    <button class="thm" @click="toggleTheme">{{ isDark ? '☀ 浅色' : '🌙 深色' }}</button>
+  </div>
+</header>
+
+<div class="main">
+  <!-- 工序库 -->
+  <aside class="panel lib">
+    <div class="panel-t collapsible" @click="showLib = !showLib">
+      <span>工序库</span>
+      <span class="collapse-btn">{{ showLib ? '▼' : '▶' }}</span>
+    </div>
+    <div v-show="showLib">
+    <div class="lib-toolbar">
+      <div class="lib-toolbar-l">
+        <button class="btn btn-xs" @click="addSeries">+ 系列</button>
+        <button class="btn btn-xs" @click="showImportMenu = !showImportMenu">📥</button>
+        <button class="btn btn-xs" @click="showExportMenu = !showExportMenu">📤</button>
+        <div v-if="showImportMenu" class="dropdown-menu">
+          <div class="dropdown-item" @click="importProjectJson(); showImportMenu=false">📄 导入 JSON</div>
+          <div class="dropdown-item" @click="triggerExcelImport(); showImportMenu=false">📊 导入 Excel</div>
+        </div>
+        <div v-if="showExportMenu" class="dropdown-menu">
+          <div class="dropdown-item" @click="exportProjectJson(); showExportMenu=false">📄 导出 JSON</div>
+          <div class="dropdown-item" @click="exportProjectExcel(); showExportMenu=false">📊 导出 Excel</div>
+        </div>
+      </div>
+    </div>
+    <input ref="jsonFileInput" type="file" accept=".json" style="display:none" @change="onJsonFileSelect">
+    <input ref="excelFileInput" type="file" accept=".xlsx,.xls" style="display:none" @change="onExcelFileSelect">
+
+    <div v-for="s in lib" :key="s.id" class="si">
+      <div class="sh" :class="{xp: s.xp}">
+        <span class="si-expand" @click="s.xp = !s.xp">&#9654;</span>
+        <span class="si-ic">{{ s.icon }}</span>
+        <span class="si-nm">{{ s.name }}</span>
+        <span class="si-ct">{{ s.models.length }}</span>
+        <div class="si-actions">
+          <button class="icon-btn-xs" @click.stop="editSeries(s)">✏️</button>
+          <button class="icon-btn-xs" @click.stop="addModel(s)">➕</button>
+          <button class="icon-btn-xs" @click.stop="delSeries(s)">🗑️</button>
+        </div>
+      </div>
+      <div v-show="s.xp" class="sms">
+        <div v-for="m in s.models" :key="m.id" class="mi" draggable="true" @dragstart="onLibDragStart(s, m)" @dragend="onLibDragEnd">
+          <div class="mif">
+            <div class="min">
+              {{ m.name }}
+              <span class="unit-tag" :class="'unit-' + (m.default_unit || 'L')">{{ m.default_unit || 'L' }}</span>
+              <span v-if="m.can_concurrent_io" class="stat-badge concurrent">同</span>
+              <span v-else class="stat-badge sequential">顺</span>
+            </div>
+            <div class="mim">{{ m.note || '暂无备注' }}</div>
+          </div>
+          <div class="mi-actions">
+            <button class="icon-btn-xs" @click.stop="editModel(s, m)">✏️</button>
+            <button class="icon-btn-xs" @click.stop="copyModel(s, m)">📋</button>
+            <button class="icon-btn-xs" @click.stop="delModel(s, m)">🗑️</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </aside>
+
+  <!-- 甘特图 -->
+  <main class="panel cv" @dragover.prevent @drop="onDropToGantt" style="padding:0;display:flex;flex-direction:column">
+    <div class="shdr">
+      <div class="shdr-l">
+        <span class="shdr-t">排程甘特图</span>
+        <div style="display:flex;gap:4px;align-items:center">
+          <button class="btn btn-sm btn-r" @click="clearAll">清空</button>
+          <div class="unit-toggle">
+            <button :class="{active: globalUnit === 'L'}" @click="globalUnit = 'L'">升(L)</button>
+            <button :class="{active: globalUnit === 'KG'}" @click="globalUnit = 'KG'">千克(KG)</button>
+          </div>
+        </div>
+      </div>
+      <div class="tgl" @click="showInfo = !showInfo">
+        <span class="tgl-l">工序详情</span>
+        <div class="tgl-t" :class="{on: showInfo}"><div class="tgl-h"></div></div>
+      </div>
+    </div>
+
+    <div v-if="devs.length === 0" class="cv-empty" style="flex:1">
+      <div class="cv-icon">&#128193;</div>
+      <div class="cv-t">拖拽设备到此处开始排程</div>
+      <div class="cv-h">工序块可拖动调整时间，边缘拖动调整时长</div>
+    </div>
+
+    <div v-else class="gw" ref="ganttScroll" @scroll="syncGanttScroll">
+      <div class="gc" :style="{minWidth: ganttW + 'px'}">
+        <div class="ghdr-lbl">设备</div>
+        <div class="ghdr-tl" ref="ganttTimelineHeader">
+          <div v-for="t in ticks" :key="t" class="gt" :class="{mj: t % 15 === 0}" :style="{left: (t / TS * 50) + 'px'}">
+            <span class="gt-l">{{ t }}</span>
+          </div>
+        </div>
+
+        <template v-for="(d, dIdx) in devs" :key="d.uid">
+          <div class="gl-lbl" :class="{'row-dragging': rowDragging === dIdx}" style="background:var(--bg2)" @dragover.prevent="onRowDragOver(dIdx)" @drop.prevent="onRowDrop(dIdx)" @dragleave="onRowDragLeave(dIdx)">
+            <div class="gl-lbl-top">
+              <span class="row-drag-handle" draggable="true" @dragstart.stop="onRowDragStart(dIdx)" @dragend.stop="onRowDragEnd" title="拖动排序">&#8801;</span>
+              <span class="gd-nm" :title="d.name">{{ d.name }}</span>
+              <span v-if="d.upstream" style="font-size:9px;color:var(--blue);cursor:help" title="上游设备">⬆{{ d.upstream_name || '?' }}</span>
+              <span v-if="d.downstream" style="font-size:9px;color:var(--green);cursor:help" title="下游设备">⬇{{ d.downstream_name || '?' }}</span>
+              <span v-if="d.can_concurrent_io" class="stat-badge concurrent" style="font-size:8px;padding:1px 3px">同</span>
+              <button class="icon-btn" @click="editDev(d, dIdx)">&#9998;</button>
+              <button class="icon-btn r" @click="delDev(dIdx)">&#128465;</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span class="unit-tag" :class="'unit-' + (d.unit || 'L')">{{ d.unit || 'L' }}</span>
+              <span v-if="d.density && d.density !== 1" style="font-size:9px;color:var(--purple);background:rgba(163,113,247,0.2);padding:1px 4px;border-radius:3px" :title="'密度: ' + d.density + ' kg/L'">ρ={{ d.density }}</span>
+              <span class="gd-note">{{ d.note || '双击备注' }}</span>
+            </div>
+          </div>
+
+          <div class="gr-c" :class="{'drag-over': rowDragOver === dIdx}">
+            <div class="gg">
+              <div v-for="t in ticks" :key="'g' + t" class="gg-l" :class="{mj: t % 15 === 0}" :style="{left: (t / TS * 50) + 'px'}"></div>
+            </div>
+
+            <template v-for="(p, pIdx) in d.procs" :key="pIdx">
+              <div class="gp" :class="'p' + ((pIdx % 8) + 1) + (isBottleneck(p) ? ' bottleneck' : '')"
+                   :style="{left: (p.s / TS * 50) + 'px', width: Math.max(p.d / TS * 50, 48) + 'px'}"
+                   @mousedown.prevent="startDrag($event, d, p, 'move')" @dblclick="editProcess(d, dIdx, p, pIdx)">
+                <div class="rz l" @mousedown.stop.prevent="startDrag($event, d, p, 'l')"></div>
+                <div class="gp-tp">
+                  <span class="gp-seq">{{ pIdx + 1 }}.</span>
+                  <span class="gp-nm">{{ p.name || '未命名' }}</span>
+                  <span v-if="p.is_feeding" style="font-size:9px;background:rgba(88,166,255,0.8);padding:1px 4px;border-radius:2px;color:#fff">⬆</span>
+                  <span v-if="p.is_discharging" style="font-size:9px;background:rgba(63,185,80,0.8);padding:1px 4px;border-radius:2px;color:#fff">⬇</span>
+                  <span class="gp-tm">{{ p.s }}–{{ p.s + p.d }}</span>
+                </div>
+                <div class="gp-ac">
+                  <button class="icon-btn" @mousedown.stop @click.stop="editProcess(d, dIdx, p, pIdx)">&#9998;</button>
+                  <button class="icon-btn r" @mousedown.stop @click.stop="delProc(d, pIdx)">&#128465;</button>
+                </div>
+                <div class="rz r" @mousedown.stop.prevent="startDrag($event, d, p, 'r')"></div>
+              </div>
+              
+              <div v-if="showInfo" class="gp-inf" :style="{left: (p.s / TS * 50) + 'px', width: Math.max(p.d / TS * 50, 48) + 'px', backgroundColor: ['rgba(66,165,245,0.75)','rgba(102,187,106,0.75)','rgba(255,167,38,0.75)','rgba(171,71,188,0.75)','rgba(239,83,80,0.75)','rgba(38,198,218,0.75)','rgba(236,64,122,0.75)','rgba(126,87,194,0.75)'][pIdx % 8]}">
+                <div class="gp-inf-row"><span>容:{{ p.cap || 0 }}{{ p.unit || 'L' }}<template v-if="p.density && p.density !== 1"> ρ={{ p.density }}</template></span></div>
+                <div class="gp-inf-row" v-if="p.is_feeding && d.upstream"><span>进:{{ getUpstreamLinkedSpeed(d, p) || p.in_speed || 0 }}{{ p.unit || 'L' }}/min 🔗</span></div>
+                <div class="gp-inf-row" v-else-if="p.in_speed > 0"><span>进:{{ p.in_speed || 0 }}{{ p.unit || 'L' }}/min</span></div>
+                <div class="gp-inf-row" v-if="p.out_speed > 0"><span>出:{{ p.out_speed || 0 }}{{ p.unit || 'L' }}/min</span></div>
+                <div class="gp-inf-row" v-if="isBottleneck(p)"><span style="color:#ff6b6b">⚠瓶颈</span></div>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+      <div class="addbtn" style="margin:12px 0 0;max-width:300px">+ 拖拽设备到此处添加</div>
+    </div>
+
+    <!-- 曲线图 -->
+    <div class="chart-section" :class="{zoomed: chartZoom}">
+      <div class="chart-header">
+        <div class="chart-header-left">
+          <span style="font-size:12px;color:var(--txt2)">产能曲线</span>
+          <span style="display:flex;align-items:center;gap:6px">
+            <span style="display:flex;align-items:center;gap:3px"><span style="width:12px;height:3px;background:var(--blue);border-radius:2px"></span><span style="font-size:10px">进料</span></span>
+            <span style="display:flex;align-items:center;gap:3px"><span style="width:12px;height:3px;background:var(--green);border-radius:2px"></span><span style="font-size:10px">出料</span></span>
+            <span style="display:flex;align-items:center;gap:3px"><span style="width:12px;height:3px;background:var(--yellow);border-radius:2px"></span><span style="font-size:10px">总容量</span></span>
+          </span>
+        </div>
+        <div class="chart-header-right">
+          <button class="btn btn-sm" @click="showDeviceChart = !showDeviceChart">{{ showDeviceChart ? '📊 总览' : '🔧 分设备' }}</button>
+          <button class="btn btn-sm" @click="chartZoom = !chartZoom">{{ chartZoom ? '🔲 缩小' : '🔍 放大' }}</button>
+        </div>
+      </div>
+      
+      <!-- 物料流动连接显示 -->
+      <div v-if="calcResult.flow_connections?.length" style="padding:8px 12px;border-bottom:1px solid var(--bd)">
+        <div style="font-size:10px;color:var(--txt2);margin-bottom:6px">📦 物料流动连接</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div v-for="(conn, idx) in calcResult.flow_connections" :key="idx" style="display:flex;align-items:center;gap:4px;font-size:10px;padding:4px 8px;background:var(--bg3);border-radius:4px">
+            <span style="color:var(--blue)">{{ conn.from_dev }}</span>
+            <span style="color:var(--txtM)">→</span>
+            <span style="color:var(--green)">{{ conn.to_dev }}</span>
+            <span style="color:var(--txtM)">({{ conn.time_start }}-{{ conn.time_end }}min)</span>
+            <span v-if="conn.flow_speed > 0" style="color:var(--yellow)">{{ conn.flow_speed }}{{ globalUnit }}/min</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 产能曲线图 - 带坐标轴和设备选择 -->
+      <div class="chart-section-inner" style="padding:12px;">
+        <!-- 图表控制栏 -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:11px;color:var(--txt2)">曲线类型:</span>
+            <select v-model="chartType" style="background:var(--bg3);color:var(--txt);border:1px solid var(--bd);border-radius:4px;padding:4px 8px;font-size:11px;">
+              <option value="flow">流量曲线 (L/min)</option>
+              <option value="capacity">容量曲线 (L)</option>
+              <option value="device">设备容量</option>
+            </select>
+          </div>
+          <div v-if="chartType === 'device'" style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:11px;color:var(--txt2)">选择设备:</span>
+            <select v-model="selectedChartDevice" style="background:var(--bg3);color:var(--txt);border:1px solid var(--bd);border-radius:4px;padding:4px 8px;font-size:11px;">
+              <option value="all">全部设备</option>
+              <option v-for="d in devs" :key="d.uid" :value="d.uid">{{ d.name }}</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+            <span style="display:flex;align-items:center;gap:3px;font-size:10px;"><span style="width:16px;height:3px;background:var(--blue);border-radius:2px"></span>进料</span>
+            <span style="display:flex;align-items:center;gap:3px;font-size:10px;"><span style="width:16px;height:3px;background:var(--green);border-radius:2px"></span>出料</span>
+            <span v-if="chartType === 'capacity'" style="display:flex;align-items:center;gap:3px;font-size:10px;"><span style="width:16px;height:3px;background:var(--yellow);border-radius:2px"></span>容量</span>
+            <button class="btn btn-sm" @click="exportProjectExcel" style="margin-left:8px">📊 导出Excel</button>
+          </div>
+        </div>
+        
+        <!-- 图表区域 -->
+        <div style="position:relative;height:180px;background:var(--bg3);border-radius:8px;overflow:hidden;" ref="mainChartArea" @mousemove="handleMainChartMove" @mouseleave="hideMainChartTooltip">
+          <svg style="width:100%;height:100%;" :viewBox="`0 0 ${chartW} ${chartH}`" preserveAspectRatio="none">
+            <!-- 网格线 -->
+            <g class="grid-lines">
+              <line v-for="i in 5" :key="'hg'+i" :x1="chartPadL" :y1="chartPadT + (i-1) * chartInnerH / 4" :x2="chartW - chartPadR" :y2="chartPadT + (i-1) * chartInnerH / 4" style="stroke:var(--bd)" stroke-width="0.5" stroke-dasharray="3,3" opacity="0.5"/>
+              <line v-for="t in chartXTicks" :key="'vg'+t" :x1="chartX(t)" :y1="chartPadT" :x2="chartX(t)" :y2="chartH - chartPadB" style="stroke:var(--bd)" stroke-width="0.5" stroke-dasharray="3,3" opacity="0.5"/>
+            </g>
+            <!-- 坐标轴 -->
+            <line :x1="chartPadL" :y1="chartPadT" :x2="chartPadL" :y2="chartH - chartPadB" style="stroke:var(--txt2)" stroke-width="1"/>
+            <line :x1="chartPadL" :y1="chartH - chartPadB" :x2="chartW - chartPadR" :y2="chartH - chartPadB" style="stroke:var(--txt2)" stroke-width="1"/>
+            <!-- Y轴刻度标签 -->
+            <text v-for="(val, idx) in chartYLabels" :key="'yl'+idx" :x="chartPadL - 5" :y="chartPadT + idx * chartInnerH / (chartYLabels.length - 1) + 4" text-anchor="end" font-size="9" fill="var(--txt2)">{{ val.toFixed(0) }}</text>
+            <!-- X轴刻度标签 -->
+            <text v-for="t in chartXTicks" :key="'xl'+t" :x="chartX(t)" :y="chartH - chartPadB + 14" text-anchor="middle" font-size="9" fill="var(--txt2)">{{ t }}min</text>
+            <!-- Y轴标签 -->
+            <text :x="12" :y="chartPadT + chartInnerH / 2" text-anchor="middle" font-size="9" fill="var(--txt2)" :transform="`rotate(-90, 12, ${chartPadT + chartInnerH / 2})`">{{ chartType === 'flow' ? globalUnit + '/min' : globalUnit }}</text>
+            <!-- 数据曲线 -->
+            <g v-if="chartSteps.length > 1">
+              <!-- 流量曲线 -->
+              <template v-if="chartType === 'flow'">
+                <polyline :points="getMainChartPoints('in')" fill="none" stroke="#58a6ff" stroke-width="2" stroke-linejoin="round"/>
+                <polyline :points="getMainChartPoints('out')" fill="none" stroke="#3fb950" stroke-width="2" stroke-linejoin="round"/>
+              </template>
+              <!-- 容量曲线 -->
+              <template v-else-if="chartType === 'capacity'">
+                <polyline :points="getMainChartPoints('cap')" fill="none" stroke="#d29922" stroke-width="2" stroke-linejoin="round"/>
+              </template>
+              <!-- 设备容量曲线 -->
+              <template v-else-if="chartType === 'device'">
+                <template v-if="selectedChartDevice === 'all'">
+                  <polyline v-for="(dev, idx) in devs" :key="'dc'+dev.uid" :points="getDeviceChartPoints(dev.uid)" fill="none" :stroke="getDeviceColor(idx)" stroke-width="1.5" stroke-linejoin="round"/>
+                </template>
+                <template v-else>
+                  <polyline :points="getDeviceChartPoints(selectedChartDevice)" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linejoin="round"/>
+                </template>
+              </template>
+            </g>
+          </svg>
+          <!-- 悬浮提示 -->
+          <div v-if="mainChartTooltip.show" class="tooltip" :style="{left: mainChartTooltip.x + 'px', top: mainChartTooltip.y + 'px'}">
+            <div style="font-weight:600;margin-bottom:4px">{{ mainChartTooltip.time }} min</div>
+            <div v-for="(item, idx) in mainChartTooltip.items" :key="idx" style="display:flex;align-items:center;gap:6px;font-size:11px;">
+              <span :style="{width:8,height:8,background:item.color,borderRadius:2,display:'inline-block'}"></span>
+              <span>{{ item.label }}:</span>
+              <span style="font-weight:600">{{ item.value }}</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 图例 -->
+        <div v-if="chartType === 'device' && selectedChartDevice === 'all'" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+          <span v-for="(dev, idx) in devs" :key="dev.uid" style="display:flex;align-items:center;gap:4px;font-size:10px;padding:2px 6px;background:var(--bg2);border-radius:3px;">
+            <span :style="{width:10,height:3,background:getDeviceColor(idx),borderRadius:2,display:'inline-block'}"></span>
+            {{ dev.name }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 产能统计 -->
+  <aside class="panel sts">
+    <div class="panel-t collapsible" @click="showStats = !showStats">
+      <span>产能统计</span>
+      <span class="collapse-btn">{{ showStats ? '▼' : '▶' }}</span>
+    </div>
+    <div v-show="showStats">
+    <div class="sr">
+      <div class="sc"><div class="sl">设备</div><div class="sv bl">{{ devs.length }}</div></div>
+      <div class="sc"><div class="sl">工序</div><div class="sv gr">{{ calcResult.proc_cnt || 0 }}</div></div>
+    </div>
+    <div class="sc"><div class="sl">总时长</div><div class="sv ye">{{ calcResult.max_end || 60 }} <span class="su">min</span></div></div>
+
+    <!-- 流量参数 -->
+    <div class="panel-t" style="margin-top:12px">📊 流量参数</div>
+    <div class="cap-grid">
+      <div class="cap-item"><div class="cap-item-l"><span class="cap-item-d" style="background:var(--blue)"></span>瞬时进料</div><div class="cap-item-v" style="color:var(--blue)">{{ calcResult.throughput?.current_in_rate || 0 }} <span class="cap-item-u">{{ globalUnit }}/min</span></div></div>
+      <div class="cap-item"><div class="cap-item-l"><span class="cap-item-d" style="background:var(--green)"></span>瞬时出料</div><div class="cap-item-v" style="color:var(--green)">{{ calcResult.throughput?.current_out_rate || 0 }} <span class="cap-item-u">{{ globalUnit }}/min</span></div></div>
+    </div>
+    <div class="cap-grid">
+      <div class="cap-item"><div class="cap-item-l"><span class="cap-item-d" style="background:var(--c1)"></span>累计进料</div><div class="cap-item-v" style="color:var(--c1)">{{ calcResult.throughput?.total_input || 0 }} <span class="cap-item-u">{{ globalUnit }}</span></div></div>
+      <div class="cap-item"><div class="cap-item-l"><span class="cap-item-d" style="background:var(--c6)"></span>累计出料</div><div class="cap-item-v" style="color:var(--c6)">{{ calcResult.throughput?.total_output || 0 }} <span class="cap-item-u">{{ globalUnit }}</span></div></div>
+    </div>
+    <div class="cap-grid">
+      <div class="cap-item"><div class="cap-item-l"><span class="cap-item-d" style="background:var(--yellow)"></span>最大容量</div><div class="cap-item-v" style="color:var(--yellow)">{{ calcResult.totals?.max_cap || 0 }} <span class="cap-item-u">{{ globalUnit }}</span></div></div>
+      <div class="cap-item"><div class="cap-item-l"><span class="cap-item-d" style="background:var(--purple)"></span>流水线填充</div><div class="cap-item-v" style="color:var(--purple)">{{ calcResult.throughput?.pipeline_fill_time || 0 }} <span class="cap-item-u">min</span></div></div>
+    </div>
+
+    <!-- 产能参数 -->
+    <div class="panel-t" style="margin-top:12px">⚡ 产能参数</div>
+    <div class="cap-grid">
+      <div class="cap-item"><div class="cap-item-l"><span class="cap-item-d" style="background:var(--green)"></span>理论产能/h</div><div class="cap-item-v" style="color:var(--green);font-weight:600">{{ calcResult.throughput?.per_hour || 0 }} <span class="cap-item-u">批</span></div></div>
+      <div class="cap-item"><div class="cap-item-l"><span class="cap-item-d" style="background:var(--blue)"></span>稳态产能/h</div><div class="cap-item-v" style="color:var(--blue)">{{ calcResult.throughput?.steady_state_rate || 0 }} <span class="cap-item-u">批</span></div></div>
+    </div>
+
+    <div class="balance-section">
+      <div class="balance-header">
+        <span class="balance-title">线平衡分析</span>
+        <span class="balance-val" :style="{color: getBalanceColor(calcResult.balance?.balance_rate)}">{{ calcResult.balance?.balance_rate || 0 }}%</span>
+      </div>
+      <div class="balance-rate">
+        <div class="balance-bar"><div class="balance-fill" :style="{width: (calcResult.balance?.balance_rate || 0) + '%', background: getBalanceColor(calcResult.balance?.balance_rate)}"></div></div>
+      </div>
+      <div class="cap-grid" style="margin-top:10px">
+        <div class="cap-item"><div class="cap-item-l">瓶颈CT</div><div class="cap-item-v" style="color:var(--red)">{{ calcResult.balance?.max_ct || 0 }} <span class="cap-item-u">min</span></div></div>
+        <div class="cap-item"><div class="cap-item-l">平均CT</div><div class="cap-item-v">{{ calcResult.balance?.avg_ct || 0 }} <span class="cap-item-u">min</span></div></div>
+      </div>
+      <div class="cap-item" style="margin-top:8px"><div class="cap-item-l">瓶颈工序</div><div class="cap-item-v" style="font-size:13px;color:var(--red)">{{ calcResult.totals?.bottleneck_name || '无' }}</div></div>
+      <div class="station-list" v-if="calcResult.balance?.stations?.length">
+        <div v-for="(s, idx) in calcResult.balance?.stations" :key="idx" class="station-item" :class="{bottleneck: s.ct === calcResult.balance?.max_ct}">
+          <span class="station-nm">{{ s.device }} - {{ s.name }}</span>
+          <span class="station-ct">{{ s.ct }}min</span>
+          <span v-if="s.ct === calcResult.balance?.max_ct" class="station-badge bottleneck">瓶颈</span>
+          <span v-else class="station-badge ok">正常</span>
+        </div>
+      </div>
+      
+      <!-- 瓶颈预警 -->
+      <div v-if="calcResult.balance?.balance_rate < 70 && calcResult.balance?.stations?.length" class="bottleneck-alert">
+        <div class="alert-header">
+          <span class="alert-icon">⚠️</span>
+          <span class="alert-title">产能瓶颈预警</span>
+        </div>
+        <div class="alert-detail">
+          线平衡率仅 {{ calcResult.balance?.balance_rate }}%，存在产能瓶颈。<br>
+          瓶颈工序: <strong>{{ calcResult.totals?.bottleneck_name }}</strong> ({{ calcResult.balance?.max_ct }}min)<br>
+          建议: 优化瓶颈工序或增加并行工站
+        </div>
+      </div>
+      
+      <!-- 物料流动状态 -->
+      <div v-if="devs.some(d => d.upstream || d.downstream)" class="flow-info">
+        <span class="flow-badge" :class="calcResult.flow_connections?.length ? 'active' : 'inactive'">
+          {{ calcResult.flow_connections?.length || 0 }}
+        </span>
+        <span style="font-size:10px;color:var(--txt2)">个物料流动连接</span>
+        <span v-if="calcResult.flow_connections?.length === 0" style="font-size:9px;color:var(--txtM)">(检查工序是否标记为进料/出料)</span>
+      </div>
+    </div>
+  </aside>
+</div>
+</div>
+
+<div v-if="loading" class="loading-overlay"><div class="loading-spinner"></div></div>
+
+<!-- 修改密码 -->
+<div v-if="showChangePassword" class="mo">
+  <div class="md" style="width:360px">
+    <div class="mh"><span class="mt">修改密码</span><button class="icon-btn" @click="showChangePassword = false">&#10005;</button></div>
+    <div class="mb">
+      <div class="fg"><label class="fl">原密码</label><input class="fi" type="password" v-model="changePasswordForm.oldPassword" placeholder="请输入原密码"></div>
+      <div class="fg"><label class="fl">新密码</label><input class="fi" type="password" v-model="changePasswordForm.newPassword" placeholder="请输入新密码"></div>
+      <div class="fg"><label class="fl">确认新密码</label><input class="fi" type="password" v-model="changePasswordForm.confirmPassword" placeholder="请再次输入新密码"></div>
+      <div v-if="changePasswordError" class="error">{{ changePasswordError }}</div>
+      <div v-if="changePasswordSuccess" class="success">{{ changePasswordSuccess }}</div>
+    </div>
+    <div class="mf"><button class="btn" @click="showChangePassword = false">取消</button><button class="btn btn-p" @click="doChangePassword">确认修改</button></div>
+  </div>
+</div>
+
+<!-- 编辑系列 -->
+<div v-if="editingSeries" class="mo">
+  <div class="md" style="width:320px">
+    <div class="mh"><span class="mt">{{ editSeriesMode === 'add' ? '新建系列' : '编辑系列' }}</span><button class="icon-btn" @click="editingSeries = null">&#10005;</button></div>
+    <div class="mb">
+      <div class="fg"><label class="fl">系列名称</label><input class="fi" v-model="editingSeries.name" placeholder="如：配料系统"></div>
+      <div class="fg"><label class="fl">图标</label>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <span v-for="ico in ['⚖️','⚙️','🔄','➡️','🌀','📦','🔥','💧','⚡','🧪','🏭','🔩','🪣','🧹']" :key="ico" class="ico-opt" :class="{active: editingSeries.icon === ico}" @click="editingSeries.icon = ico">{{ ico }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn" @click="editingSeries = null">取消</button><button class="btn btn-p" @click="saveSeries">保存</button></div>
+  </div>
+</div>
+
+<!-- 编辑型号 -->
+<div v-if="editingModel" class="mo">
+  <div class="md" style="width:680px;max-height:80vh;overflow-y:auto">
+    <div class="mh"><span class="mt">{{ editModelMode === 'add' ? '新建型号' : '编辑型号' }} — {{ editingModelSeries?.name }}</span><button class="icon-btn" @click="editingModel = null">&#10005;</button></div>
+    <div class="mb">
+      <div style="display:flex;gap:12px;margin-bottom:12px">
+        <div class="fg" style="flex:1"><label class="fl">型号名称</label><input class="fi" v-model="editingModel.name" placeholder="如：称重配料"></div>
+        <div class="fg" style="flex:1"><label class="fl">备注</label><input class="fi" v-model="editingModel.note" placeholder="可选"></div>
+        <div class="fg" style="flex:0.6"><label class="fl">默认单位</label><select class="fi" v-model="editingModel.default_unit" style="margin-top:4px;font-size:12px;padding:8px"><option value="L">L</option><option value="KG">KG</option></select></div>
+        <div class="fg" style="flex:0.6"><label class="fl">物料密度</label><input class="fi" type="number" v-model.number="editingModel.default_density" min="0.01" step="0.01" placeholder="kg/L" style="margin-top:4px"></div>
+      </div>
+      <div style="font-size:9px;color:var(--txtM);margin-top:-8px;margin-bottom:12px">
+        💡 L ↔ KG 换算用，如：水的密度=1 kg/L，糖浆≈1.5 kg/L
+      </div>
+      <div class="fg" style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--bg3);border-radius:6px">
+        <span style="font-size:12px;color:var(--txt2)">同时进出料</span>
+        <div class="io-switch" :class="{on: editingModel.can_concurrent_io}" @click="editingModel.can_concurrent_io = !editingModel.can_concurrent_io"><div class="handle"></div></div>
+        <span style="font-size:11px;color:var(--txtM)">{{ editingModel.can_concurrent_io ? '允许同时进料和出料' : '进料和出料不能同时进行' }}</span>
+      </div>
+      <div style="margin-top:12px">
+        <div v-for="(p, idx) in editingModel.procs" :key="idx" style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--bd)">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span :class="'pb pb' + ((idx % 8) + 1)">{{ idx + 1 }}</span>
+              <input class="fi" v-model="p.name" placeholder="工序名称" style="width:100px">
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input class="fi" type="number" v-model.number="p.s" min="0" style="width:56px" title="开始"><span style="font-size:10px;color:var(--txt2)">min</span>
+              <input class="fi" type="number" v-model.number="p.d" min="1" style="width:56px" title="时长"><span style="font-size:10px;color:var(--txt2)">min</span>
+              <button class="icon-btn r" @click="removeModelProc(idx)">&#128465;</button>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+            <div class="fc"><label class="fl">容量</label><input class="fi" type="number" v-model.number="p.cap" min="0"></div>
+            <div class="fc"><label class="fl">进料速度</label><input class="fi" type="number" v-model.number="p.in_speed" min="0" step="0.1"></div>
+            <div class="fc"><label class="fl">出料速度</label><input class="fi" type="number" v-model.number="p.out_speed" min="0" step="0.1"></div>
+            <div class="fc"><label class="fl">单位</label><select class="fi" v-model="p.unit" style="font-size:11px;padding:7px"><option value="L">L</option><option value="KG">KG</option></select></div>
+          </div>
+        </div>
+        <button class="addbtn" @click="addModelProc">+ 添加工序</button>
+      </div>
+    </div>
+    <div class="mf"><button class="btn" @click="editingModel = null">取消</button><button class="btn btn-p" @click="saveModel">保存</button></div>
+  </div>
+</div>
+
+<!-- 编辑设备 -->
+<div v-if="showDevEdit" class="mo">
+  <div class="md" style="width:720px;max-height:80vh;overflow-y:auto">
+    <div class="mh"><span class="mt">编辑设备 — {{ devEditName }}</span><button class="icon-btn" @click="showDevEdit = false">&#10005;</button></div>
+    <div class="mb">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px;padding:10px;background:var(--bg3);border-radius:6px">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <span style="font-size:11px;color:var(--txt2)">物料密度</span>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input class="fi" type="number" v-model.number="devEditDensity" min="0.01" step="0.01" style="width:80px" placeholder="kg/L">
+            <span style="font-size:10px;color:var(--txtM)">kg/L</span>
+          </div>
+          <span style="font-size:9px;color:var(--txtM)">L ↔ KG 换算用</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:var(--txt2)">同时进出料</span>
+          <div class="io-switch" :class="{on: devEditConcurrent}" @click="devEditConcurrent = !devEditConcurrent"><div class="handle"></div></div>
+        </div>
+        <div class="fc">
+          <label class="fl">⬆ 上游设备</label>
+          <select class="fi" v-model="devEditUpstream" style="font-size:11px;padding:7px">
+            <option value="">无</option>
+            <option v-for="d in availableUpstreamDevs" :key="d.uid" :value="d.uid">{{ d.name }}</option>
+          </select>
+        </div>
+        <div class="fc">
+          <label class="fl">⬇ 下游设备</label>
+          <select class="fi" v-model="devEditDownstream" style="font-size:11px;padding:7px">
+            <option value="">无</option>
+            <option v-for="d in availableDownstreamDevs" :key="d.uid" :value="d.uid">{{ d.name }}</option>
+          </select>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--txtM);margin-bottom:10px">💡 上游设备的出料将自动关联到本设备的进料</div>
+      <div style="margin-top:0">
+        <div v-for="(p, idx) in devEditProcs" :key="idx" style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--bd)">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span :class="'pb pb' + ((idx % 8) + 1)">{{ idx + 1 }}</span>
+              <input class="fi" v-model="p.name" placeholder="工序名称" style="width:100px">
+              <span v-if="p.is_feeding" style="font-size:9px;color:var(--blue);padding:2px 6px;background:rgba(88,166,255,0.2);border-radius:3px">⬆ 进料中</span>
+              <span v-if="p.is_discharging" style="font-size:9px;color:var(--green);padding:2px 6px;background:rgba(63,185,80,0.2);border-radius:3px">⬇ 出料中</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input class="fi" type="number" v-model.number="p.s" min="0" style="width:56px" title="开始时间"><span style="font-size:10px;color:var(--txt2)">min</span>
+              <input class="fi" type="number" v-model.number="p.d" min="1" style="width:56px" title="持续时间"><span style="font-size:10px;color:var(--txt2)">min</span>
+              <button class="icon-btn r" @click="devEditProcs.splice(idx, 1)">&#128465;</button>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px;padding:10px;background:var(--bg3);border-radius:6px">
+        <div class="fc"><label class="fl">容量</label><input class="fi" type="number" v-model.number="p.cap" min="0"></div>
+        <div class="fc">
+          <label class="fl">
+            进料速度 
+            <span v-if="p.is_feeding && devEditUpstream" class="linked-indicator auto" title="将自动使用上游出料">自动</span>
+          </label>
+          <input class="fi" type="number" v-model.number="p.in_speed" min="0">
+        </div>
+        <div class="fc"><label class="fl">出料速度</label><input class="fi" type="number" v-model.number="p.out_speed" min="0"></div>
+        <div class="fc">
+          <label class="fl">单位</label>
+          <select class="fi" v-model="p.unit" style="font-size:11px;padding:7px" @change="switchProcUnit(p, p.unit)">
+            <option value="L">L</option>
+            <option value="KG">KG</option>
+          </select>
+        </div>
+        <div class="fc"><label class="fl">工序类型</label><div style="display:flex;gap:3px"><button class="btn btn-xs" :class="{'btn-p': p.is_feeding}" @click="p.is_feeding = !p.is_feeding" style="padding:4px 6px;font-size:10px">⬆</button><button class="btn btn-xs" :class="{'btn-p': p.is_discharging}" @click="p.is_discharging = !p.is_discharging" style="padding:4px 6px;font-size:10px">⬇</button></div></div>
+      </div>
+          <div v-if="p.is_feeding && devEditUpstream" style="margin-top:6px;font-size:10px;color:var(--purple);display:flex;align-items:center;gap:4px">
+            <span>🔗</span>
+            <span>已关联上游设备: 将自动使用上游出料速度</span>
+          </div>
+        </div>
+        <button class="addbtn" @click="addDevProcInEdit">+ 添加工序</button>
+      </div>
+    </div>
+    <div class="mf"><button class="btn" @click="showDevEdit = false">取消</button><button class="btn btn-p" @click="saveDevEdit">保存</button></div>
+  </div>
+</div>
+
+<!-- 编辑工序 -->
+<div v-if="showProcEdit && editingProc" class="mo">
+  <div class="md" style="width:580px">
+    <div class="mh">
+      <span class="mt">编辑工序</span>
+      <div style="display:flex;gap:6px"><button class="btn btn-sm btn-r" @click="deleteEditingProc">&#128465; 删除</button><button class="icon-btn" @click="showProcEdit = false">&#10005;</button></div>
+    </div>
+    <div class="mb">
+      <div style="display:flex;gap:12px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed var(--bd)">
+        <div class="fc" style="flex:1.5"><label class="fl">工序名称</label><input class="fi" v-model="editingProc.name" placeholder="如：进料"></div>
+        <div class="fc" style="flex:0.7"><label class="fl">开始(min)</label><input class="fi" type="number" v-model.number="editingProc.s" min="0"></div>
+        <div class="fc" style="flex:0.7"><label class="fl">时长(min)</label><input class="fi" type="number" v-model.number="editingProc.d" min="1"></div>
+      </div>
+      <div style="margin-bottom:6px;font-size:10px;font-weight:600;color:var(--txt2);text-transform:uppercase">产能参数</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
+        <div class="fc"><label class="fl">设备容量</label><input class="fi" type="number" v-model.number="editingProc.cap" min="0" step="0.1"></div>
+        <div class="fc"><label class="fl">进料速度</label><input class="fi" type="number" v-model.number="editingProc.in_speed" min="0" step="0.1"></div>
+        <div class="fc"><label class="fl">出料速度</label><input class="fi" type="number" v-model.number="editingProc.out_speed" min="0" step="0.1"></div>
+        <div class="fc">
+          <label class="fl">单位</label>
+          <select class="fi" v-model="editingProc.unit" style="font-size:12px;padding:7px" @change="switchProcUnit(editingProc, editingProc.unit)">
+            <option value="L">L</option>
+            <option value="KG">KG</option>
+          </select>
+        </div>
+        <div class="fc">
+          <label class="fl">密度</label>
+          <input class="fi" type="number" v-model.number="editingProc.density" min="0.01" step="0.01" placeholder="kg/L">
+        </div>
+      </div>
+      <div style="margin-top:8px;font-size:9px;color:var(--txtM);display:flex;align-items:center;gap:8px">
+        <span>💡 L ↔ KG 换算: 质量(kg) = 体积(L) × 密度(kg/L)</span>
+        <span v-if="editingProc.density" style="color:var(--blue)">
+          当前: 1 L = {{ editingProc.density }} kg, 1 kg = {{ (1/editingProc.density).toFixed(3) }} L
+        </span>
+      </div>
+    </div>
+    <div class="mf"><button class="btn" @click="showProcEdit = false">取消</button><button class="btn btn-p" @click="saveProcEdit">保存</button></div>
+  </div>
+</div>
+
+</div>
+
+<script>
+(function () {
+  const TS = 5, API = '';
+
+  // ===== 离线计算引擎（原 server.py 核心计算前端移植）=====
+  function lct_calc_max_end(devs){ let m=0; for(const d of devs){ for(const p of (d.procs||[])){ m=Math.max(m,(Number(p.s)||0)+(Number(p.d)||0)); } } return Math.max(m+15,60); }
+  function lct_calc_totals(devs){
+    let total_in=0,total_out=0,total_cap=0,bottleneck_ct=0,bottleneck_name="";
+    for(const d of devs){ for(const p of (d.procs||[])){
+      const cap=p.cap||0; total_cap=Math.max(total_cap,cap);
+      const ct=p.d||0; if(ct>bottleneck_ct){ bottleneck_ct=ct; bottleneck_name=p.name||"未命名"; }
+      const in_speed=p.in_speed||0; const duration=p.d||0; total_in += in_speed*duration/60;
+      const out_speed=p.out_speed||0; total_out += out_speed*duration/60;
+    } }
+    return { total_in:Math.round(total_in*100)/100, total_out:Math.round(total_out*100)/100, max_cap:total_cap, bottleneck_ct:bottleneck_ct, bottleneck_name:bottleneck_name };
+  }
+  function lct_calc_line_balance(devs){
+    const all_cts=[]; const station_data=[];
+    for(const d of devs){ const dev_name=d.name||"未知设备"; for(const p of (d.procs||[])){
+      const ct=p.d||0; const cap=p.cap||0; const in_speed=p.in_speed||0; const out_speed=p.out_speed||0;
+      all_cts.push(ct);
+      station_data.push({ device:dev_name, name:p.name||"", ct:ct, cap:cap, in_speed:in_speed, out_speed:out_speed });
+    } }
+    if(!all_cts.length) return { balance_rate:0, avg_ct:0, max_ct:0, min_ct:0, theoretical_ct:0, stations:[] };
+    const max_ct=Math.max.apply(null,all_cts); const min_ct=Math.min.apply(null,all_cts); const avg_ct=all_cts.reduce(function(a,b){return a+b;},0)/all_cts.length; const theoretical_ct=max_ct;
+    const balance_rate = max_ct>0 ? (avg_ct/max_ct*100) : 0;
+    return { balance_rate:Math.round(balance_rate*10)/10, avg_ct:Math.round(avg_ct*100)/100, max_ct:max_ct, min_ct:min_ct, theoretical_ct:theoretical_ct, stations:station_data };
+  }
+  function lct_calc_throughput(devs, max_time){
+    if(max_time<=0 || !devs.length) return { per_hour:0, per_batch:0, efficiency:0, bottleneck_ct:0, pipeline_fill_time:0, current_in_rate:0, current_out_rate:0, total_output:0, total_input:0, steady_state_rate:0 };
+    const device_windows=[]; const all_cts=[]; let total_input=0,total_output=0,max_ct=0; let first_start=Infinity, last_end=0;
+    for(const d of devs){ const dev_name=d.name||"未知设备"; for(const p of (d.procs||[])){
+      const s=p.s||0; const duration=p.d||0; const cap=p.cap||0; const in_speed=p.in_speed||0; const out_speed=p.out_speed||0;
+      all_cts.push(duration); max_ct=Math.max(max_ct,duration); total_input += in_speed*duration/60; total_output += out_speed*duration/60;
+      first_start=Math.min(first_start,s); last_end=Math.max(last_end,s+duration);
+      device_windows.push({ device:dev_name, start:s, end:s+duration, duration:duration, cap:cap, in_speed:in_speed, out_speed:out_speed });
+    } }
+    const pipeline_fill_time = (first_start<Infinity) ? (last_end-first_start) : 0;
+    let per_hour=0, steady_state_rate=0;
+    if(max_ct>0){ steady_state_rate=60/max_ct; let effective_cycle; if(device_windows.length>1 && pipeline_fill_time>0){ effective_cycle=Math.max(pipeline_fill_time/device_windows.length, max_ct); } else { effective_cycle=max_ct; } per_hour = effective_cycle>0 ? 60/effective_cycle : 0; }
+    let current_in_rate=0, current_out_rate=0;
+    for(let t=0;t<=max_time;t++){ let t_in=0,t_out=0; for(const dw of device_windows){ if(dw.start<=t && t<dw.end){ t_in+=dw.in_speed; t_out+=dw.out_speed; } } current_in_rate=Math.max(current_in_rate,t_in); current_out_rate=Math.max(current_out_rate,t_out); }
+    let efficiency=0; if(all_cts.length && max_ct>0){ const avg_ct=all_cts.reduce(function(a,b){return a+b;},0)/all_cts.length; efficiency=(max_ct/avg_ct*100); }
+    const per_batch = per_hour*(max_time/60);
+    return { per_hour:Math.round(per_hour*100)/100, per_batch:Math.round(per_batch*100)/100, efficiency:Math.round(efficiency*10)/10, max_ct:max_ct, min_ct: all_cts.length?Math.min.apply(null,all_cts):0, avg_ct: all_cts.length?Math.round(all_cts.reduce(function(a,b){return a+b;},0)/all_cts.length*100)/100:0, pipeline_fill_time:pipeline_fill_time, steady_state_rate:Math.round(steady_state_rate*100)/100, current_in_rate:Math.round(current_in_rate*10)/10, current_out_rate:Math.round(current_out_rate*10)/10, total_input:Math.round(total_input*10)/10, total_output:Math.round(total_output*10)/10, device_count:devs.length, proc_count:all_cts.length };
+  }
+  function lct_calc_chart_data(devs, max_time){
+    const steps=[]; for(let t=0;t<=max_time;t++){ let current_in=0,current_out=0,total_cap=0; for(const d of devs){ for(const p of (d.procs||[])){ const s=p.s||0; const duration=p.d||0; if(s<=t && t<s+duration){ current_in+=(p.in_speed||0); current_out+=(p.out_speed||0); total_cap+=(p.cap||0); } } } steps.push({ time:t, in:Math.round(current_in*10)/10, out:Math.round(current_out*10)/10, cap:Math.round(total_cap*10)/10 }); }
+    return steps;
+  }
+  function lct_calc_device_cap_history(devs, max_time){
+    const device_history={}; const dev_map={}; for(const d of devs){ dev_map[(d.uid!==undefined)?d.uid:(d.name||"")]=d; }
+    for(const d of devs){ const dev_name=d.name||"未知设备"; const dev_uid=(d.uid!==undefined)?d.uid:dev_name; const upstream_uid=d.upstream||""; const can_concurrent=d.can_concurrent_io||false; const history=[]; const sorted_procs=[].concat(d.procs||[]).sort(function(a,b){return (a.s||0)-(b.s||0)});
+      for(let t=0;t<=max_time;t++){ let current_cap=0, active_proc=null, in_speed=0, out_speed=0;
+        for(const p of sorted_procs){ const s=p.s||0; const duration=p.d||0; if(s<=t && t<s+duration){ const elapsed=t-s; const cap=p.cap||0; let proc_in_speed=p.in_speed||0; const is_feeding=p.is_feeding||false;
+          if(is_feeding && upstream_uid){ const upstream_dev=dev_map[upstream_uid]; if(upstream_dev){ for(const up_p of (upstream_dev.procs||[])){ const up_s=up_p.s||0; const up_d=up_p.d||0; if(up_s<=t && t<up_s+up_d){ proc_in_speed=up_p.out_speed||0; break; } } } }
+          in_speed=proc_in_speed; out_speed=p.out_speed||0;
+          const in_amount=Math.min(in_speed*elapsed/60, cap); let out_amount=0;
+          if(!can_concurrent){ if(elapsed<duration/2){ out_amount=0; } else { out_amount=Math.min(out_speed*(elapsed-duration/2)/60, cap); } } else { out_amount=Math.min(out_speed*elapsed/60, cap); }
+          if(elapsed<duration/2){ current_cap=Math.min(cap, in_amount); } else { const net_change=in_speed-out_speed; if(net_change>=0){ current_cap=Math.min(cap, in_amount-out_speed*(elapsed-duration/2)/60); } else { current_cap=Math.max(0, in_amount-out_speed*(elapsed-duration/2)/60); } }
+          active_proc=p.name||""; break;
+        }
+        history.push({ time:t, cap:Math.round(current_cap*10)/10, proc:active_proc||"", in_speed:in_speed, out_speed:out_speed });
+      }
+      device_history[dev_uid]={ name:dev_name, history:history, can_concurrent:can_concurrent, upstream:upstream_uid };
+    }
+  }
+  return device_history;
+}
+  function lct_calc_flow_connections(devs, max_time){
+    const connections=[]; const dev_map={}; for(const d of devs){ dev_map[(d.uid!==undefined)?d.uid:(d.name||"")]=d; }
+    for(const d of devs){ const dev_name=d.name||"未知设备"; const dev_uid=(d.uid!==undefined)?d.uid:dev_name; const downstream_uid=d.downstream||""; if(!downstream_uid) continue; const downstream_dev=dev_map[downstream_uid]; if(!downstream_dev) continue; const downstream_name=downstream_dev.name||"未知";
+      (d.procs||[]).forEach(function(p,p_idx){ if(p.is_discharging){ const p_start=p.s||0; const p_end=p_start+(p.d||0); const p_out_speed=p.out_speed||0; (downstream_dev.procs||[]).forEach(function(dp,dp_idx){ if(dp.is_feeding){ const dp_start=dp.s||0; const dp_end=dp_start+(dp.d||0); const overlap_start=Math.max(p_start,dp_start); const overlap_end=Math.min(p_end,dp_end); if(overlap_end>overlap_start){ connections.push({ from_dev:dev_name, from_uid:dev_uid, from_proc_idx:p_idx, to_dev:downstream_name, to_uid:downstream_uid, to_proc_idx:dp_idx, time_start:overlap_start, time_end:overlap_end, flow_speed:p_out_speed, flow_amount:p_out_speed*(overlap_end-overlap_start)/60 }); } } }); } });
+    }
+    return connections;
+  }
+  function lct_calc_local(devs){
+    const max_time = lct_calc_max_end(devs);
+    const totals = lct_calc_totals(devs);
+    const balance = lct_calc_line_balance(devs);
+    const throughput = lct_calc_throughput(devs, max_time);
+    const chart_steps = lct_calc_chart_data(devs, max_time);
+    const device_history = lct_calc_device_cap_history(devs, max_time);
+    const flow_connections = lct_calc_flow_connections(devs, max_time);
+    return { max_end: max_time, totals: totals, balance: balance, throughput: throughput, chart_steps: chart_steps, device_history: device_history, flow_connections: flow_connections, proc_cnt: devs.reduce(function(a,d){return a+((d.procs||[]).length);},0) };
+  }
+  const DEFAULT_LCT_LIB = [];
+  const DEFAULT_LCT_DEVS = [];
+
+  const app = Vue.createApp({
+    data() {
+      return {
+        TS, isDark: true, showInfo: true, globalUnit: 'L',
+        isLoggedIn: true, currentUser: { username: '本地用户', role: 'admin' }, showRegister: false,
+        loginForm: { username: '', password: '' },
+        registerForm: { username: '', password: '', confirmPassword: '', inviteCode: '' },
+        loginError: '', loginLoading: false,
+        showChangePassword: false,
+        changePasswordForm: { oldPassword: '', newPassword: '', confirmPassword: '' },
+        changePasswordError: '', changePasswordSuccess: '', changingPassword: false,
+        loading: false,
+        lib: [], devs: [],
+        calcResult: { totals: {}, balance: {}, throughput: {}, max_end: 60, proc_cnt: 0, chart_steps: [], device_history: {}, flow_connections: [] },
+        showTooltip: false, tooltipLeft: 0, tooltipTop: 0, tooltipTime: 0, tooltipIn: 0, tooltipOut: 0, tooltipCap: 0,
+        showLib: true, showStats: true, chartZoom: false, showDeviceChart: false,
+        tooltipDevice: '',
+        libDragS: null, libDragM: null,
+        rowDragging: -1, rowDragOver: -1, saveTimer: null,
+        showImportMenu: false, showExportMenu: false,
+        editingSeries: null, editSeriesMode: 'add',
+        editingModel: null, editModelMode: 'add', editingModelSeries: null,
+        showDevEdit: false, devEditIdx: -1, devEditName: '', devEditProcs: [], devEditConcurrent: false, devEditUpstream: '', devEditDownstream: '', devEditDensity: 1.0,
+        showProcEdit: false, editingProc: null, editingProcDevice: null, editingProcIndex: -1,
+        // 图表相关
+        chartType: 'flow', // 'flow' | 'capacity' | 'device'
+        selectedChartDevice: 'all',
+        mainChartTooltip: { show: false, x: 0, y: 0, time: 0, items: [] },
+        chartW: 600, chartH: 180, chartPadL: 40, chartPadR: 20, chartPadT: 15, chartPadB: 30,
+        chartInnerW: 540, chartInnerH: 135,
+      };
+    },
+    computed: {
+      maxEnd() { return (this.calcResult && this.calcResult.max_end) || 60; },
+      ganttW() { return Math.max((this.maxEnd / this.TS * 50) + 200, 800); },
+      ticks() { const r = []; for (let i = 0; i <= this.maxEnd; i += 5) r.push(i); return r; },
+      chartXStart() { return (180 / this.ganttW) * 100; },
+      chartDataW() { return 100 - this.chartXStart; },
+      chartSteps() { return (this.calcResult && this.calcResult.chart_steps) || []; },
+      bottleneckCT() { return (this.calcResult && this.calcResult.balance?.max_ct) || 0; },
+      currentDev() { return this.devs[this.devEditIdx]; },
+      currentDevUid() { return this.currentDev?.uid || ''; },
+      availableUpstreamDevs() { return this.devs.filter(d => d.uid !== this.currentDevUid() && d.uid !== this.devEditDownstream); },
+      availableDownstreamDevs() { return this.devs.filter(d => d.uid !== this.currentDevUid() && d.uid !== this.devEditUpstream); },
+      chartInnerW() { return this.chartW - this.chartPadL - this.chartPadR; },
+      chartInnerH() { return this.chartH - this.chartPadT - this.chartPadB; },
+      chartXTicks() { if (!this.chartSteps.length) return []; const maxT = this.chartSteps[this.chartSteps.length - 1]?.time || 60; const ticks = []; const step = maxT <= 30 ? 5 : (maxT <= 60 ? 10 : 15); for (let t = 0; t <= maxT; t += step) ticks.push(t); return ticks; },
+      chartYLabels() {
+        let maxVal = 0;
+        if (this.chartType === 'flow') {
+          this.chartSteps.forEach(s => { maxVal = Math.max(maxVal, s.in || 0, s.out || 0); });
+        } else if (this.chartType === 'capacity') {
+          this.chartSteps.forEach(s => { maxVal = Math.max(maxVal, s.cap || 0); });
+        } else {
+          const devs = this.selectedChartDevice === 'all' ? this.devs : this.devs.filter(d => d.uid === this.selectedChartDevice);
+          devs.forEach(d => {
+            const hist = this.calcResult.device_history?.[d.uid];
+            if (hist?.history) hist.history.forEach(h => { maxVal = Math.max(maxVal, h.cap || 0); });
+          });
+        }
+        maxVal = maxVal || 100;
+        const niceMax = Math.ceil(maxVal / 10) * 10;
+        const labels = [niceMax, niceMax * 0.75, niceMax * 0.5, niceMax * 0.25, 0];
+        return labels;
+      },
+    },
+    methods: {
+      async api(path, opts = {}) {
+        const res = await fetch(API + path, {
+          ...opts,
+          headers: { 'Content-Type': 'application/json', ...(this.token ? { 'Authorization': 'Bearer ' + this.token } : {}), ...opts.headers },
+          body: opts.body ? JSON.stringify(opts.body) : undefined,
+        });
+        if (res.status === 401) { this.isLoggedIn = false; this.token = null; localStorage.removeItem('lct_token'); throw new Error('登录已过期'); }
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || '请求失败');
+        return data;
+      },
+      async doLogin() {
+        if (!this.loginForm.username || !this.loginForm.password) { this.loginError = '请输入用户名和密码'; return; }
+        this.loginLoading = true; this.loginError = '';
+        try {
+          const data = await this.api('/api/login', { method: 'POST', body: this.loginForm });
+          this.token = data.token; this.currentUser = { id: data.id, username: data.username, role: data.role };
+          localStorage.setItem('lct_token', data.token); this.isLoggedIn = true;
+          await this.loadData();
+        } catch (e) { this.loginError = e.message; } finally { this.loginLoading = false; }
+      },
+      async doLogout() { try { await this.api('/api/logout', { method: 'POST' }); } catch (_) {} this.token = null; this.isLoggedIn = false; localStorage.removeItem('lct_token'); },
+      async doRegister() {
+        if (!this.registerForm.username || !this.registerForm.password || !this.registerForm.inviteCode) { this.loginError = '请填写所有字段'; return; }
+        if (this.registerForm.password !== this.registerForm.confirmPassword) { this.loginError = '两次密码输入不一致'; return; }
+        this.loginLoading = true; this.loginError = '';
+        try {
+          const res = await fetch(API + '/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: this.registerForm.username, password: this.registerForm.password, invite_code: this.registerForm.inviteCode }) });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || '注册失败');
+          alert('注册成功！请使用新账号登录。'); this.showRegister = false; this.registerForm = { username: '', password: '', confirmPassword: '', inviteCode: '' };
+        } catch (e) { this.loginError = e.message; } finally { this.loginLoading = false; }
+      },
+      async doChangePassword() {
+        if (!this.changePasswordForm.oldPassword || !this.changePasswordForm.newPassword) { this.changePasswordError = '请填写所有字段'; return; }
+        if (this.changePasswordForm.newPassword !== this.changePasswordForm.confirmPassword) { this.changePasswordError = '两次密码输入不一致'; return; }
+        this.changingPassword = true; this.changePasswordError = ''; this.changePasswordSuccess = '';
+        try {
+          await this.api('/api/change-password', { method: 'POST', body: { old_password: this.changePasswordForm.oldPassword, new_password: this.changePasswordForm.newPassword } });
+          this.changePasswordSuccess = '密码修改成功！';
+          setTimeout(() => { this.showChangePassword = false; this.changePasswordForm = { oldPassword: '', newPassword: '', confirmPassword: '' }; }, 1500);
+        } catch (e) { this.changePasswordError = e.message; } finally { this.changingPassword = false; }
+      },
+      addSeries() { this.editingSeries = { id: Date.now(), name: '', icon: '⚙️', models: [] }; this.editSeriesMode = 'add'; },
+      editSeries(s) { this.editingSeries = { ...s, models: [...s.models] }; this.editSeriesMode = 'edit'; },
+      saveSeries() { if (!this.editingSeries.name.trim()) { alert('请输入系列名称'); return; } if (this.editSeriesMode === 'add') this.lib.push(this.editingSeries); else { const idx = this.lib.findIndex(s => s.id === this.editingSeries.id); if (idx !== -1) this.lib[idx] = this.editingSeries; } this.saveLib(); this.editingSeries = null; },
+      delSeries(s) { if (!confirm(`确定删除系列「${s.name}」吗？`)) return; this.lib = this.lib.filter(x => x.id !== s.id); this.saveLib(); },
+      addModel(s) { this.editingModel = { id: Date.now(), name: '', note: '', can_concurrent_io: false, default_unit: 'L', default_density: 1.0, procs: [] }; this.editModelMode = 'add'; this.editingModelSeries = s; },
+      editModel(s, m) { this.editingModel = JSON.parse(JSON.stringify(m)); if (!this.editingModel.default_density) this.editingModel.default_density = 1.0; this.editModelMode = 'edit'; this.editingModelSeries = s; },
+      saveModel() { if (!this.editingModel.name.trim()) { alert('请输入型号名称'); return; } if (this.editModelMode === 'add') this.editingModelSeries.models.push(this.editingModel); else { const s = this.editingModelSeries; const idx = s.models.findIndex(m => m.id === this.editingModel.id); if (idx !== -1) s.models[idx] = this.editingModel; } this.saveLib(); this.editingModel = null; this.editingModelSeries = null; },
+      delModel(s, m) { if (!confirm(`确定删除型号「${m.name}」吗？`)) return; s.models = s.models.filter(x => x.id !== m.id); this.saveLib(); },
+      copyModel(s, m) { const copy = JSON.parse(JSON.stringify(m)); copy.id = Date.now(); copy.name = copy.name + ' (副本)'; s.models.push(copy); this.saveLib(); },
+      saveLib() { clearTimeout(this.saveTimer); this.saveTimer = setTimeout(() => { try { localStorage.setItem('lct_lib_v1', JSON.stringify(this.lib)); } catch (e) { console.error('保存工序库失败:', e); } }, 500); },
+      addModelProc() { const last = this.editingModel.procs.length ? Math.max(...this.editingModel.procs.map(p => p.s + p.d)) : 0; this.editingModel.procs.push({ name: '', s: last, d: 10, cap: 0, in_speed: 0, out_speed: 0, unit: this.editingModel.default_unit || 'L', density: this.editingModel.default_density || 1.0 }); },
+      removeModelProc(idx) { this.editingModel.procs.splice(idx, 1); },
+      editDev(d, idx) { this.devEditIdx = idx; this.devEditName = d.name; this.devEditProcs = JSON.parse(JSON.stringify(d.procs)); this.devEditProcs.forEach(p => p.baseUnit = p.unit); this.devEditConcurrent = d.can_concurrent_io || false; this.devEditUpstream = d.upstream || ''; this.devEditDownstream = d.downstream || ''; this.devEditDensity = d.density || 1.0; this.showDevEdit = true; },
+      saveDevEdit() { if (this.devEditIdx >= 0) { this.devs[this.devEditIdx].procs = this.devEditProcs; this.devs[this.devEditIdx].can_concurrent_io = this.devEditConcurrent; this.devs[this.devEditIdx].upstream = this.devEditUpstream || null; this.devs[this.devEditIdx].downstream = this.devEditDownstream || null; this.devs[this.devEditIdx].upstream_name = this.devEditUpstream ? this.devs.find(d => d.uid === this.devEditUpstream)?.name || '' : ''; this.devs[this.devEditIdx].downstream_name = this.devEditDownstream ? this.devs.find(d => d.uid === this.devEditDownstream)?.name || '' : ''; this.devs[this.devEditIdx].density = this.devEditDensity || 1.0; this.resolveProcs(this.devs[this.devEditIdx].procs); this.resolveUpstreamDownstream(); this.saveDevs(); this.fetchCalc(); } this.showDevEdit = false; },
+      resolveUpstreamDownstream() { this.devs.forEach(d => { if (d.upstream) { const up = this.devs.find(x => x.uid === d.upstream); d.upstream_name = up?.name || ''; } if (d.downstream) { const dn = this.devs.find(x => x.uid === d.downstream); d.downstream_name = dn?.name || ''; } }); },
+      addDevProcInEdit() { const last = this.devEditProcs.length ? Math.max(...this.devEditProcs.map(p => p.s + p.d)) : 0; this.devEditProcs.push({ name: '', s: last, d: 10, cap: 0, in_speed: 0, out_speed: 0, unit: this.globalUnit, is_feeding: false, is_discharging: false, linked_from: '', density: this.devEditDensity || 1.0 }); },
+      editProcess(dev, dIdx, p, pIdx) { this.editingProc = { ...p, unit: p.unit || this.globalUnit, baseUnit: p.unit || this.globalUnit }; this.editingProcDevice = dev; this.editingProcIndex = pIdx; this.showProcEdit = true; },
+      saveProcEdit() { if (this.editingProcIndex >= 0 && this.editingProcDevice) { this.editingProcDevice.procs[this.editingProcIndex] = { ...this.editingProc }; this.resolveProcs(this.editingProcDevice.procs); this.saveDevs(); this.fetchCalc(); this.showProcEdit = false; } },
+      deleteEditingProc() { if (!confirm('确定要删除此工序吗？')) return; if (this.editingProcIndex >= 0 && this.editingProcDevice) { this.editingProcDevice.procs.splice(this.editingProcIndex, 1); this.saveDevs(); this.fetchCalc(); } this.showProcEdit = false; },
+      // L ↔ KG 单位换算: kg = L × 密度
+      // 使用 baseUnit 标记来避免二次编辑时的重复换算
+      switchProcUnit(proc, targetUnit) {
+        if (proc.unit === targetUnit) return;
+        // 如果已经切换过一次（baseUnit 存在），则直接替换值，不再换算
+        if (proc.baseUnit && proc.baseUnit !== targetUnit) {
+          // 之前已经换算过，现在再次切换需要换算回来再换算新值
+          const density = proc.density || 1.0;
+          const fromUnit = proc.unit;
+          if (fromUnit === 'KG' && targetUnit === 'L') {
+            // KG → L
+            proc.cap = parseFloat((proc.cap / density).toFixed(3));
+            proc.in_speed = parseFloat((proc.in_speed / density).toFixed(3));
+            proc.out_speed = parseFloat((proc.out_speed / density).toFixed(3));
+          } else if (fromUnit === 'L' && targetUnit === 'KG') {
+            // L → KG
+            proc.cap = parseFloat((proc.cap * density).toFixed(3));
+            proc.in_speed = parseFloat((proc.in_speed * density).toFixed(3));
+            proc.out_speed = parseFloat((proc.out_speed * density).toFixed(3));
+          }
+        } else if (!proc.baseUnit) {
+          // 第一次切换，记录原始单位
+          proc.baseUnit = proc.unit;
+          const density = proc.density || 1.0;
+          if (targetUnit === 'KG') {
+            proc.cap = parseFloat((proc.cap * density).toFixed(3));
+            proc.in_speed = parseFloat((proc.in_speed * density).toFixed(3));
+            proc.out_speed = parseFloat((proc.out_speed * density).toFixed(3));
+          } else {
+            proc.cap = parseFloat((proc.cap / density).toFixed(3));
+            proc.in_speed = parseFloat((proc.in_speed / density).toFixed(3));
+            proc.out_speed = parseFloat((proc.out_speed / density).toFixed(3));
+          }
+        }
+        proc.unit = targetUnit;
+      },
+      delProc(dev, pIdx) { if (!confirm('删除此工序？')) return; dev.procs.splice(pIdx, 1); this.saveDevs(); this.fetchCalc(); },
+      isBottleneck(p) { return p.d === this.bottleneckCT && this.bottleneckCT > 0; },
+      getBalanceColor(rate) { if (rate >= 80) return '#3fb950'; if (rate >= 60) return '#d29922'; return '#f85149'; },
+      async loadData() { this.loading = true; try { const libRaw = localStorage.getItem('lct_lib_v1'); this.lib = libRaw ? JSON.parse(libRaw) : JSON.parse(JSON.stringify(DEFAULT_LCT_LIB)); const devsRaw = localStorage.getItem('lct_devs_v1'); this.devs = devsRaw ? JSON.parse(devsRaw) : JSON.parse(JSON.stringify(DEFAULT_LCT_DEVS)); await this.fetchCalc(); } catch (e) { console.error('加载数据失败:', e); } finally { this.loading = false; } },
+      async fetchCalc() { if (!this.devs.length) { this.calcResult = { totals: {}, balance: {}, throughput: {}, max_end: 60, proc_cnt: 0, chart_steps: [] }; return; } try { this.calcResult = lct_calc_local(this.devs); } catch (e) { console.error('计算失败:', e); } },
+      saveDevs() { clearTimeout(this.saveTimer); this.saveTimer = setTimeout(() => { try { localStorage.setItem('lct_devs_v1', JSON.stringify(this.devs)); } catch (e) { console.error('保存失败:', e); } }, 500); },
+      onLibDragStart(s, m) { this.libDragS = s; this.libDragM = m; },
+      onLibDragEnd() { this.libDragS = null; this.libDragM = null; },
+      onDropToGantt() { if (!this.libDragM) return; const procs = JSON.parse(JSON.stringify(this.libDragM.procs)); this.resolveProcs(procs); this.devs.push({ uid: Date.now() + Math.random(), name: this.libDragM.name, note: '', unit: this.libDragM.default_unit || 'L', can_concurrent_io: this.libDragM.can_concurrent_io || false, procs, density: this.libDragM.default_density || 1.0 }); this.libDragS = null; this.libDragM = null; this.saveDevs(); this.fetchCalc(); },
+      resolveProcs(procs) { procs.sort((a, b) => a.s - b.s); for (let i = 1; i < procs.length; i++) { if (procs[i].s < procs[i - 1].s + procs[i - 1].d) procs[i].s = procs[i - 1].s + procs[i - 1].d; } },
+      onRowDragStart(idx) { this.rowDragging = idx; },
+      onRowDragEnd() { this.rowDragging = -1; this.rowDragOver = -1; },
+      onRowDragOver(idx) { if (this.rowDragging !== -1 && this.rowDragging !== idx) this.rowDragOver = idx; },
+      onRowDragLeave(idx) { if (this.rowDragOver === idx) this.rowDragOver = -1; },
+      onRowDrop(targetIdx) { if (this.rowDragging === -1 || this.rowDragging === targetIdx) return; const moved = this.devs.splice(this.rowDragging, 1)[0]; const insertAt = targetIdx > this.rowDragging ? targetIdx - 1 : targetIdx; this.devs.splice(insertAt, 0, moved); this.rowDragging = -1; this.rowDragOver = -1; this.saveDevs(); },
+      startDrag(e, dev, p, mode) {
+        const sx = e.clientX, os = p.s, od = p.d;
+        const isShift = e.shiftKey && mode === 'move';
+        const origProcs = isShift ? dev.procs.map(proc => ({ s: proc.s })) : null;
+        const scrollEl = this.$refs.ganttScroll;
+        const onMove = ev => {
+          if (scrollEl) { const rect = scrollEl.getBoundingClientRect(); if (ev.clientX < rect.left + 180) scrollEl.scrollLeft = Math.max(0, scrollEl.scrollLeft - 2); else if (ev.clientX > rect.right - 80) scrollEl.scrollLeft = scrollEl.scrollLeft + 2; }
+          const dm = Math.round((ev.clientX - sx) / 50 * this.TS);
+          if (isShift) dev.procs.forEach((proc, i) => { proc.s = Math.max(0, origProcs[i].s + dm); });
+          else if (mode === 'move') p.s = Math.max(0, os + dm);
+          else if (mode === 'l') { const ns = Math.max(0, os + dm); p.d = Math.max(1, od - (ns - os)); p.s = ns; }
+          else if (mode === 'r') p.d = Math.max(1, od + dm);
+        };
+        const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); this.resolveProcs(dev.procs); this.saveDevs(); this.fetchCalc(); };
+        document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+      },
+      delDev(i) { if (!confirm(`确定要删除设备「${this.devs[i].name}」吗？`)) return; this.devs.splice(i, 1); this.saveDevs(); this.fetchCalc(); },
+      clearAll() { if (!confirm('清空所有排程？')) return; this.devs.splice(0); this.saveDevs(); this.fetchCalc(); },
+      syncGanttScroll() { const el = this.$refs.ganttScroll; if (!el) return; const cs = this.$refs.chartScroll; if (cs) cs.scrollLeft = el.scrollLeft; },
+      syncChartScroll() { const el = this.$refs.chartScroll; if (!el) return; const gs = this.$refs.ganttScroll; if (gs) gs.scrollLeft = el.scrollLeft; },
+      getLinePoints(type) { if (!this.chartSteps.length) return ''; const maxVal = Math.max(...this.chartSteps.map(s => Math.max(s.in, s.out, s.cap || 0)), 0.001); return this.chartSteps.map((s, i) => { const x = this.chartXStart + (i / this.chartSteps.length) * this.chartDataW; const y = 100 - 10 - ((s[type] || 0) / maxVal) * 82; return `${x},${y}`; }).join(' '); },
+      getAreaPoints(type) { if (!this.chartSteps.length) return ''; const maxVal = Math.max(...this.chartSteps.map(s => Math.max(s.in, s.out, s.cap || 0)), 0.001); const x1 = this.chartXStart, x2 = this.chartXStart + this.chartDataW; let pts = `${x1},100 `; this.chartSteps.forEach((s, i) => { const x = this.chartXStart + (i / this.chartSteps.length) * this.chartDataW; pts += `${x},${100 - 10 - ((s[type] || 0) / maxVal) * 82} `; }); pts += `${x2},100`; return pts; },
+      getDeviceColor(idx) { const colors = ['#58a6ff','#3fb950','#d29922','#f85149','#a371f7','#26c6da','#ec407a','#7e57c2']; return colors[idx % colors.length]; },
+      getDeviceCapPoints(uid) { const hist = this.calcResult.device_history?.[uid]; if (!hist?.history?.length) return ''; const maxVal = Math.max(...this.devs.flatMap(d => (d.procs || []).map(p => p.cap || 0)), 1); return hist.history.map((h, i) => { const x = (i / hist.history.length) * 100; const y = 95 - (h.cap / maxVal) * 88; return `${x},${y}`; }).join(' '); },
+      getUpstreamLinkedSpeed(dev, proc) { if (!proc.is_feeding || !dev.upstream) return null; const upstreamDev = this.devs.find(d => d.uid === dev.upstream); if (!upstreamDev) return null; for (const p of upstreamDev.procs) { if (proc.s >= p.s && proc.s < p.s + p.d) return p.out_speed; } return null; },
+      getDeviceFlowRate(devUid, time) { const hist = this.calcResult.device_history?.[devUid]; if (!hist?.history?.length) return { in: 0, out: 0 }; const step = hist.history[Math.min(time, hist.history.length - 1)]; return { in: step?.in_speed || 0, out: step?.out_speed || 0 }; },
+      handleDeviceChartMove(event) { 
+        const rect = event.currentTarget.getBoundingClientRect(); 
+        const xRatio = (event.clientX - rect.left) / rect.width; 
+        if (!this.devs.length) return;
+        const dev = this.devs[0]; 
+        if (!dev) return; 
+        const hist = this.calcResult.device_history?.[dev.uid]; 
+        if (!hist?.history?.length) return; 
+        const stepIdx = Math.floor(xRatio * hist.history.length); 
+        const step = hist.history[Math.min(stepIdx, hist.history.length - 1)]; 
+        if (step) { 
+          this.showTooltip = true; 
+          this.tooltipLeft = event.clientX + 12; 
+          this.tooltipTop = event.clientY - 60; 
+          this.tooltipDevice = dev.name + (step.proc ? ` (${step.proc})` : ''); 
+          this.tooltipTime = step.time; 
+          this.tooltipCap = step.cap; 
+        } 
+      },
+      handleMouseMove(event) { if (!this.chartSteps.length) return; const rect = event.currentTarget.getBoundingClientRect(); const xRatio = (event.clientX - rect.left) / rect.width; const idx = Math.floor(xRatio * this.chartSteps.length); const step = this.chartSteps[Math.min(idx, this.chartSteps.length - 1)]; if (step) { this.showTooltip = true; this.tooltipLeft = event.clientX + 12; this.tooltipTop = event.clientY - 80; this.tooltipTime = step.time; this.tooltipIn = step.in; this.tooltipOut = step.out; this.tooltipCap = (step.cap || 0).toFixed(1); } },
+      hideTooltip() { this.showTooltip = false; this.tooltipDevice = ''; },
+      // 主图表相关方法
+      chartX(time) { if (!this.chartSteps.length) return this.chartPadL; const maxT = this.chartSteps[this.chartSteps.length - 1]?.time || 60; return this.chartPadL + (time / maxT) * this.chartInnerW; },
+      chartY(val) { const maxVal = this.chartYLabels[0] || 100; return this.chartPadT + this.chartInnerH - (val / maxVal) * this.chartInnerH; },
+      getMainChartPoints(type) { if (!this.chartSteps.length) return ''; return this.chartSteps.map(s => { const x = this.chartX(s.time); const y = this.chartY(s[type] || 0); return `${x},${y}`; }).join(' '); },
+      getDeviceChartPoints(uid) { const hist = this.calcResult.device_history?.[uid]; if (!hist?.history?.length) return ''; const maxT = hist.history[hist.history.length - 1]?.time || 60; return hist.history.map(h => { const x = this.chartPadL + (h.time / maxT) * this.chartInnerW; const y = this.chartY(h.cap || 0); return `${x},${y}`; }).join(' '); },
+      handleMainChartMove(event) { if (!this.chartSteps.length) return; const rect = event.currentTarget.getBoundingClientRect(); const x = event.clientX - rect.left; const y = event.clientY - rect.top; const svgX = (x / rect.width) * this.chartW; const svgY = (y / rect.height) * this.chartH; if (svgX < this.chartPadL || svgX > this.chartW - this.chartPadR || svgY < this.chartPadT || svgY > this.chartH - this.chartPadB) { this.mainChartTooltip.show = false; return; } const maxT = this.chartSteps[this.chartSteps.length - 1]?.time || 60; const time = ((svgX - this.chartPadL) / this.chartInnerW) * maxT; const idx = Math.round(time / maxT * (this.chartSteps.length - 1)); const step = this.chartSteps[Math.max(0, Math.min(idx, this.chartSteps.length - 1))]; if (!step) { this.mainChartTooltip.show = false; return; } const items = []; if (this.chartType === 'flow') { items.push({ label: '进料', value: (step.in || 0).toFixed(1) + ' ' + this.globalUnit + '/min', color: '#58a6ff' }); items.push({ label: '出料', value: (step.out || 0).toFixed(1) + ' ' + this.globalUnit + '/min', color: '#3fb950' }); } else if (this.chartType === 'capacity') { items.push({ label: '容量', value: (step.cap || 0).toFixed(1) + ' ' + this.globalUnit, color: '#d29922' }); } else { const devs = this.selectedChartDevice === 'all' ? this.devs : this.devs.filter(d => d.uid === this.selectedChartDevice); devs.forEach((d, didx) => { const hist = this.calcResult.device_history?.[d.uid]; if (hist?.history?.length) { const h = hist.history[Math.min(idx, hist.history.length - 1)]; if (h) items.push({ label: d.name, value: (h.cap || 0).toFixed(1) + ' ' + this.globalUnit, color: this.getDeviceColor(didx) }); } }); } this.mainChartTooltip = { show: true, x: event.clientX - rect.left + 10, y: event.clientY - rect.top - 60, time: step.time, items }; },
+      hideMainChartTooltip() { this.mainChartTooltip.show = false; },
+      toggleTheme() { this.isDark = !this.isDark; document.documentElement.setAttribute('data-theme', this.isDark ? 'dark' : 'light'); localStorage.setItem('lct_theme', this.isDark ? 'dark' : 'light'); },
+      importProjectJson() { this.$refs.jsonFileInput.click(); },
+      onJsonFileSelect(e) { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (ev) => { try { const data = JSON.parse(ev.target.result); if (data.lib) this.lib = data.lib; if (data.devs) { this.devs = data.devs; await this.fetchCalc(); } this.saveLib(); this.saveDevs(); alert('JSON导入成功！'); } catch (err) { alert('JSON导入失败: ' + err.message); } }; reader.readAsText(file); e.target.value = ''; },
+      dateStr() { return new Date().toLocaleDateString('zh-CN').replace(/\//g, '-'); },
+      downloadBlob(blob, name) { const url = URL.createObjectURL(blob); const a = Object.assign(document.createElement('a'), { href: url, download: name }); a.click(); URL.revokeObjectURL(url); },
+      exportProjectJson() { const data = { type: 'lct-project', version: '1.0', t: new Date().toISOString(), lib: this.lib, devs: this.devs }; const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }); this.downloadBlob(blob, `产能排程_${this.dateStr()}.json`); },
+      // Excel 导入
+      triggerExcelImport() { this.$refs.excelFileInput.click(); },
+      onExcelFileSelect(e) { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = async (ev) => { try { const data = new Uint8Array(ev.target.result); const wb = XLSX.read(data, { type: 'array' }); const ws = wb.Sheets[wb.SheetNames[0]]; const rows = XLSX.utils.sheet_to_json(ws, { defval: '' }); this.importFromExcel(rows); alert('Excel导入成功！'); } catch (err) { alert('Excel导入失败: ' + err.message); } }; reader.readAsArrayBuffer(file); e.target.value = ''; },
+      importFromExcel(rows) {
+        // 解析 Excel 数据
+        const getVal = (row, patterns) => { const keys = Object.keys(row); const k = keys.find(k => patterns.some(p => k.includes(p) || k.toLowerCase().includes(p.toLowerCase()))); return k ? String(row[k]).trim() : ''; };
+        // 设备列表
+        const devs = [];
+        // 工序库
+        const lib = [];
+        // 当前系列
+        let currentSeries = null;
+        let seriesIdx = 0;
+        for (const row of rows) {
+          const type = getVal(row, ['类型', 'type', '类别']);
+          const name = getVal(row, ['名称', 'name', '设备', '工序']);
+          if (!name) continue;
+          if (type.includes('设备') || type.includes('Dev')) {
+            const dev = {
+              uid: 'dev_' + Date.now() + '_' + devs.length,
+              name: name,
+              note: getVal(row, ['备注', 'note']),
+              unit: getVal(row, ['单位', 'unit']) || 'L',
+              density: parseFloat(getVal(row, ['密度', 'density'])) || 1,
+              can_concurrent_io: getVal(row, ['同时进出料', 'concurrent']).includes('是') || getVal(row, ['同时进出料', 'concurrent']).includes('Y'),
+              upstream: null,
+              upstream_name: '',
+              downstream: null,
+              downstream_name: '',
+              procs: []
+            };
+            // 解析工序
+            const procNames = getVal(row, ['工序', 'process', '工序列表']).split(/[,，、]/).filter(n => n.trim());
+            procNames.forEach((pName, idx) => {
+              dev.procs.push({
+                name: pName.trim(),
+                s: idx * 10,
+                d: parseFloat(getVal(row, ['时长', 'duration', '时间']) || '10') || 10,
+                cap: parseFloat(getVal(row, ['容量', 'capacity', '容积']) || '100') || 100,
+                in_speed: parseFloat(getVal(row, ['进料速度', 'in_speed']) || '0') || 0,
+                out_speed: parseFloat(getVal(row, ['出料速度', 'out_speed']) || '0') || 0,
+                is_feeding: false,
+                is_discharging: false,
+                density: dev.density,
+                unit: dev.unit
+              });
+            });
+            devs.push(dev);
+          } else if (type.includes('系列') || type.includes('Series') || !currentSeries) {
+            seriesIdx++;
+            currentSeries = {
+              id: 's_' + Date.now() + '_' + seriesIdx,
+              name: name || '默认系列',
+              icon: '⚙️',
+              xp: true,
+              models: []
+            };
+            lib.push(currentSeries);
+          } else {
+            // 型号/工序
+            const model = {
+              id: 'm_' + Date.now() + '_' + currentSeries.models.length,
+              name: name,
+              steps: []
+            };
+            // 尝试解析步骤
+            const stepNames = getVal(row, ['步骤', 'steps', '工序']).split(/[,，、]/).filter(n => n.trim());
+            const durations = getVal(row, ['时长', 'duration', '时间']).split(/[,，、]/).filter(n => n.trim());
+            const capacities = getVal(row, ['容量', 'capacity']).split(/[,，、]/).filter(n => n.trim());
+            stepNames.forEach((sName, idx) => {
+              model.steps.push({
+                name: sName.trim(),
+                duration: parseFloat(durations[idx]) || 10,
+                cap: parseFloat(capacities[idx]) || 100,
+                proc_type: getVal(row, ['工序类型', 'proc_type']) || 'normal'
+              });
+            });
+            if (model.steps.length === 0) {
+              model.steps.push({ name: name, duration: 10, cap: 100, proc_type: 'normal' });
+            }
+            currentSeries.models.push(model);
+          }
+        }
+        // 如果没有系列，创建一个默认系列
+        if (lib.length === 0) {
+          lib.push({ id: 's_default', name: '默认系列', icon: '⚙️', xp: true, models: [] });
+        }
+        // 如果有设备没有工序，给它添加默认工序
+        devs.forEach(dev => {
+          if (dev.procs.length === 0) {
+            dev.procs.push({
+              name: '默认工序',
+              s: 0,
+              d: 10,
+              cap: 100,
+              in_speed: 0,
+              out_speed: 0,
+              is_feeding: false,
+              is_discharging: false,
+              density: dev.density,
+              unit: dev.unit
+            });
+          }
+        });
+        this.lib = lib;
+        this.devs = devs;
+        this.saveLib();
+        this.saveDevs();
+        this.fetchCalc();
+      },
+      // Excel 导出
+      exportProjectExcel() {
+        const wb = XLSX.utils.book_new();
+        // Sheet1: 设备列表
+        const devsData = this.devs.map(d => ({
+          '设备名称': d.name,
+          '备注': d.note || '',
+          '单位': d.unit || 'L',
+          '密度(kg/L)': d.density || 1,
+          '同时进出料': d.can_concurrent_io ? '是' : '否',
+          '上游设备': d.upstream_name || '',
+          '下游设备': d.downstream_name || '',
+          '工序数': d.procs.length
+        }));
+        const ws1 = XLSX.utils.json_to_sheet(devsData);
+        XLSX.utils.book_append_sheet(wb, ws1, '设备列表');
+        // Sheet2: 工序详情
+        const procsData = [];
+        for (const d of this.devs) {
+          for (let i = 0; i < d.procs.length; i++) {
+            const p = d.procs[i];
+            procsData.push({
+              '设备': d.name,
+              '工序序号': i + 1,
+              '工序名称': p.name,
+              '开始时间(min)': p.s,
+              '持续时长(min)': p.d,
+              ['容量(' + (p.unit || 'L') + ')']: p.cap,
+              ['进料速度(' + (p.unit || 'L') + '/min)']: p.in_speed,
+              ['出料速度(' + (p.unit || 'L') + '/min)']: p.out_speed,
+              '工序类型': p.is_feeding ? '进料' : (p.is_discharging ? '出料' : '普通'),
+              '密度(kg/L)': p.density || d.density || 1,
+              '单位': p.unit || d.unit || 'L'
+            });
+          }
+        }
+        if (procsData.length > 0) {
+          const ws2 = XLSX.utils.json_to_sheet(procsData);
+          XLSX.utils.book_append_sheet(wb, ws2, '工序详情');
+        }
+        // Sheet3: 工序库
+        const libData = [];
+        for (const s of this.lib) {
+          for (const m of s.models) {
+            libData.push({
+              '系列': s.name,
+              '型号': m.name,
+              '步骤数': m.steps.length,
+              '步骤列表': m.steps.map(st => st.name).join(', ')
+            });
+          }
+        }
+        if (libData.length > 0) {
+          const ws3 = XLSX.utils.json_to_sheet(libData);
+          XLSX.utils.book_append_sheet(wb, ws3, '工序库');
+        }
+        // Sheet4: 产能统计
+        if (this.calcResult.totals) {
+          const statsData = [
+            { '指标': '设备数', '值': this.devs.length },
+            { '指标': '总工序数', '值': this.calcResult.proc_cnt || 0 },
+            { '指标': '总时长(min)', '值': this.calcResult.max_end || 60 },
+            { '指标': '最大容量', '值': this.calcResult.totals.max_cap || 0 },
+            { '指标': '理论产能/小时', '值': this.calcResult.throughput?.per_hour || 0 },
+            { '指标': '稳态产能/小时', '值': this.calcResult.throughput?.steady_state_rate || 0 },
+            { '指标': '线平衡率', '值': (this.calcResult.balance?.balance_rate || 0) + '%' },
+            { '指标': '瓶颈工序', '值': this.calcResult.totals.bottleneck_name || '无' }
+          ];
+          const ws4 = XLSX.utils.json_to_sheet(statsData);
+          XLSX.utils.book_append_sheet(wb, ws4, '产能统计');
+        }
+        XLSX.writeFile(wb, `产能排程_${this.dateStr()}.xlsx`);
+      },
+    },
+    async mounted() {
+      const theme = localStorage.getItem('lct_theme');
+      if (theme === 'light') { this.isDark = false; document.documentElement.setAttribute('data-theme', 'light'); }
+      // 离线版：免登录，直接加载本地数据
+      await this.loadData();
+    },
+  });
+  app.mount('#app');
+})();
+</script>
+</body>
+</html>
